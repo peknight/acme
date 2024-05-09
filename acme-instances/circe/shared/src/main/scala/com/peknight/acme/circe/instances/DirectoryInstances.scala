@@ -17,3 +17,4 @@ trait DirectoryInstances:
   given codecDirectory[F[_]](using CodecConfiguration, Monad[F]): Codec[F, Json, Cursor[Json], Directory] =
     Codec.derived[F, Json, Directory]
 end DirectoryInstances
+object DirectoryInstances extends DirectoryInstances

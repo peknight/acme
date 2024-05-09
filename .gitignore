@@ -1,3 +1,5 @@
+logs/
+
 .bsp/
 .bloop/
 .metals/

@@ -67,10 +67,13 @@ lazy val acmeCirceInstances = (crossProject(JSPlatform, JVMPlatform) in file("ac
 
 
 lazy val acmeLetsEncrypt = (crossProject(JSPlatform, JVMPlatform) in file("acme-lets-encrypt"))
+  .dependsOn(acmeCore)
   .settings(commonSettings)
   .settings(
     name := "acme-lets-encrypt",
     libraryDependencies ++= Seq(
+      "org.http4s" %%% "http4s-core" % http4sVersion,
+      "com.peknight" %%% "error-core" % pekErrorVersion,
     ),
   )
 
@@ -86,6 +89,7 @@ lazy val acmeApi = (crossProject(JSPlatform, JVMPlatform) in file("acme-api"))
 lazy val acmeHttp4s = (crossProject(JSPlatform, JVMPlatform) in file("acme-http4s"))
   .dependsOn(
     acmeApi,
+    acmeCirceInstances,
     acmeLetsEncrypt % Test,
   )
   .settings(commonSettings)
@@ -94,20 +98,31 @@ lazy val acmeHttp4s = (crossProject(JSPlatform, JVMPlatform) in file("acme-http4
     libraryDependencies ++= Seq(
       "org.http4s" %%% "http4s-client" % http4sVersion,
       "com.peknight" %%% "codec-http4s-circe" % pekCodecVersion,
+      "com.peknight" %%% "cats-effect-ext" % pekExtVersion,
+      "com.peknight" %%% "http4s-ext" % pekExtVersion,
       "org.http4s" %%% "http4s-ember-client" % http4sVersion % Test,
       "org.typelevel" %%% "cats-effect-testing-scalatest" % catsEffectTestingScalaTestVersion % Test,
     ),
   )
   .jvmSettings(
     libraryDependencies ++= Seq(
-      logbackClassic % Runtime,
+      log4CatsSlf4j % Test,
+      pekLogbackConfig % Test,
+      logbackClassic % Test,
     ),
   )
 
 val http4sVersion = "1.0.0-M34"
 val catsEffectTestingScalaTestVersion = "1.5.0"
-val logbackVersion = "1.4.12"
+val log4CatsVersion = "2.6.0"
+val logbackVersion = "1.5.6"
 val pekVersion = "0.1.0-SNAPSHOT"
 val pekCodecVersion = pekVersion
+val pekExtVersion = pekVersion
+val pekErrorVersion = pekVersion
+val pekLoggingVersion = pekVersion
 
+val log4CatsSlf4j = "org.typelevel" %% "log4cats-slf4j" % log4CatsVersion
 val logbackClassic = "ch.qos.logback" % "logback-classic" % logbackVersion
+val pekLogbackConfig = "com.peknight" %% "logback-config" % pekLoggingVersion
+
