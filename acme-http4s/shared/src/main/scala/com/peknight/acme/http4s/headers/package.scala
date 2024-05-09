@@ -66,5 +66,6 @@ package object headers:
         .map(ZonedDateTime.from)
       )
     val lastModified = headers.get[`Last-Modified`].map(last => ZonedDateTime.from(last.date.toInstant))
-    expiration.map(exp => com.peknight.acme.Headers(lastModified, exp))
+    val nonce = headers.get[`Replay-Nonce`].map(_.nonce)
+    expiration.map(exp => com.peknight.acme.Headers(lastModified, exp, nonce))
 end headers
