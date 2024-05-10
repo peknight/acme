@@ -54,9 +54,12 @@ package object headers:
   def postHeaders[F[_]: Sync](locale: Locale, compression: Boolean): F[Headers] =
     headers(locale, compression).map(_ ++ Headers(accept, `Content-Type`(`application/jose+json`)))
 
-  def responseHeaders[F[_]: Sync](headers: Headers): F[com.peknight.acme.Headers] =
+  def responseHeaders[F[_]: Sync](headers: Headers, uri: Uri): F[com.peknight.acme.Headers] =
+    val nonce = headers.get[`Replay-Nonce`].map(_.nonce)
+    val location = headers.get[Location].map(loc => uri.resolve(loc.uri))
+    val lastModified = headers.get[`Last-Modified`].map(last => ZonedDateTime.from(last.date.toInstant))
     given CanEqual[Duration, Duration] = CanEqual.derived
-    val expiration = headers.get[`Cache-Control`]
+    val expirationF = headers.get[`Cache-Control`]
       .flatMap { _.values.collectFirst {
         case `max-age`(deltaSeconds) if deltaSeconds != 0.second =>
           Clock.realTimeInstant[F].map(_.plusSeconds(deltaSeconds.toSeconds))
@@ -65,7 +68,6 @@ package object headers:
       .map(_.orElse(headers.get[Expires].map(expires => expires.expirationDate.toInstant))
         .map(ZonedDateTime.from)
       )
-    val lastModified = headers.get[`Last-Modified`].map(last => ZonedDateTime.from(last.date.toInstant))
-    val nonce = headers.get[`Replay-Nonce`].map(_.nonce)
-    expiration.map(exp => com.peknight.acme.Headers(lastModified, exp, nonce))
+    val links = headers.get[Link].map{_.values.map(_.rel).collect { case Some(rel) => rel }}
+    expirationF.map(expiration => com.peknight.acme.Headers(nonce, location, lastModified, expiration, links))
 end headers

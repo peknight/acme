@@ -31,7 +31,7 @@ class ACMEApi[F[_]: Async](locale: Locale, compression: Boolean)(client: Client[
           else response.as[Directory].map(_.some)
         for
           dir <- directory
-          headers <- responseHeaders[F](response.headers)
+          headers <- responseHeaders[F](response.headers, uri)
         yield
           Result(dir, headers)
       }

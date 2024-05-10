@@ -16,21 +16,20 @@ import scala.concurrent.duration.*
 
 class AcmeApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
   "ACME Api Directory" should "succeed" in {
-    for
-      logger <- Slf4jLogger.fromClass[IO](classOf[AcmeApiFlatSpec])
-      given Logger[IO] = logger
-      res <- EmberClientBuilder.default[IO].withLogger(logger).withTimeout(10.seconds).build
-        .use { client =>
-          for
-            locale <- IO.blocking(Locale.getDefault)
-            result <- ACMEApi[IO](locale, true)(client)(dsl.io).directory(stagingDirectory)(None)
-            _ <- info"directory result: $result"
-          yield
-            result
-        }
-        .asserting { result =>
-          assert(result.body.isDefined)
-        }
-    yield res
+    val run =
+      for
+        logger <- Slf4jLogger.fromClass[IO](classOf[AcmeApiFlatSpec])
+        given Logger[IO] = logger
+        res <- EmberClientBuilder.default[IO].withLogger(logger).withTimeout(10.seconds).build
+          .use { client =>
+            for
+              locale <- IO.blocking(Locale.getDefault)
+              result <- ACMEApi[IO](locale, true)(client)(dsl.io).directory(stagingDirectory)(None)
+              _ <- info"directory result: $result"
+            yield
+              result
+          }
+      yield res
+    run.asserting(result => assert(result.body.isDefined))
   }
 end AcmeApiFlatSpec
