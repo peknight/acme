@@ -9,8 +9,8 @@ object `Replay-Nonce`:
   def parse(s: String): ParseResult[`Replay-Nonce`] =
     ParseResultOps.fromParser(parser, "Invalid Replay-Nonce header")(s)
 
-  private[this] val parser: Parser0[`Replay-Nonce`] = 
-    ((Rfc5234.alpha | Rfc5234.digit | Parser.charIn("-_")).rep0 ~ Parser.char('=').rep0).string.map(`Replay-Nonce`.apply)
+  private[this] val parser: Parser0[`Replay-Nonce`] =
+    ((Rfc5234.alpha | Rfc5234.digit | Parser.charIn("-_")).rep0 ~ Parser.char('=').rep0(0, 3)).string.map(`Replay-Nonce`.apply)
 
   given headerInstance: Header[`Replay-Nonce`, Header.Single] =
     Header.create(ci"Replay-Nonce", v => v.nonce, parse)
