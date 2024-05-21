@@ -38,6 +38,7 @@ lazy val acmeCore = (crossProject(JSPlatform, JVMPlatform) in file("acme-core"))
     name := "acme-core",
     libraryDependencies ++= Seq(
       "org.http4s" %%% "http4s-core" % http4sVersion,
+      "com.peknight" %%% "codec-base" % pekCodecVersion,
     ),
   )
 
