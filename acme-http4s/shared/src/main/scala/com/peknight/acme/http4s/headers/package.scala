@@ -16,10 +16,10 @@ import scala.concurrent.duration.*
 
 package object headers:
 
-  private[this] val userAgent: `User-Agent` = `User-Agent`(ProductId("peknight/acme"), ProductComment("Scala"))
-  private[this] val acceptCharset: `Accept-Charset` = `Accept-Charset`(CharsetRange.fromCharset(Charset.`UTF-8`))
+  private val userAgent: `User-Agent` = `User-Agent`(ProductId("peknight/acme"), ProductComment("Scala"))
+  private val acceptCharset: `Accept-Charset` = `Accept-Charset`(CharsetRange.fromCharset(Charset.`UTF-8`))
 
-  private[this] def localeToLanguageTag[F[_]: Sync](locale: Locale): F[NonEmptyList[LanguageTag]] =
+  private def localeToLanguageTag[F[_]: Sync](locale: Locale): F[NonEmptyList[LanguageTag]] =
     Sync[F].blocking(locale.toLanguageTag).map { langTag =>
       if "und" == langTag then NonEmptyList.one(LanguageTag.*)
       else
@@ -31,19 +31,19 @@ package object headers:
         NonEmptyList(head, tail)
     }
 
-  private[this] def acceptLanguage[F[_]: Sync](locale: Locale): F[`Accept-Language`] =
+  private def acceptLanguage[F[_]: Sync](locale: Locale): F[`Accept-Language`] =
     localeToLanguageTag[F](locale).map(`Accept-Language`.apply)
 
-  private[this] val accept: Accept = Accept(MediaRangeAndQValue.withDefaultQValue(`application/json`))
+  private val accept: Accept = Accept(MediaRangeAndQValue.withDefaultQValue(`application/json`))
 
-  private[this] val acceptEncoding: `Accept-Encoding` = `Accept-Encoding`(ContentCoding.gzip)
+  private val acceptEncoding: `Accept-Encoding` = `Accept-Encoding`(ContentCoding.gzip)
 
   def headers[F[_]: Sync](locale: Locale, compression: Boolean): F[Headers] =
     acceptLanguage[F](locale).map(acceptLang =>
       Headers(userAgent, acceptCharset, acceptLang) ++ (if compression then Headers(acceptEncoding) else Headers.empty)
     )
 
-  private[this] def ifModifiedSince(lastModified: ZonedDateTime): `If-Modified-Since` =
+  private def ifModifiedSince(lastModified: ZonedDateTime): `If-Modified-Since` =
     `If-Modified-Since`(HttpDate.unsafeFromZonedDateTime(lastModified))
 
   def getHeaders[F[_]: Sync](locale: Locale, compression: Boolean, lastModified: Option[ZonedDateTime]): F[Headers] =

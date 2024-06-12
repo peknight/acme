@@ -1,6 +1,6 @@
 ThisBuild / version := "0.1.0-SNAPSHOT"
 
-ThisBuild / scalaVersion := "3.3.1"
+ThisBuild / scalaVersion := "3.4.2"
 
 ThisBuild / organization := "com.peknight"
 
@@ -115,7 +115,7 @@ lazy val acmeHttp4s = (crossProject(JSPlatform, JVMPlatform) in file("acme-http4
 
 val http4sVersion = "1.0.0-M34"
 val catsEffectTestingScalaTestVersion = "1.5.0"
-val log4CatsVersion = "2.6.0"
+val log4CatsVersion = "2.7.0"
 val logbackVersion = "1.5.6"
 val pekVersion = "0.1.0-SNAPSHOT"
 val pekCodecVersion = pekVersion
