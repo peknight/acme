@@ -15,14 +15,14 @@ import org.http4s.client.Client
 import org.http4s.client.dsl.Http4sClientDsl
 import org.http4s.{Status, Uri}
 
-import java.time.ZonedDateTime
+import java.time.Instant
 import java.util.Locale
 
 class ACMEApi[F[_]: Async](locale: Locale, compression: Boolean)(client: Client[F])(dsl: Http4sClientDsl[F])
   extends api.ACMEApi[F]:
   import dsl.*
   given CanEqual[Status, Status] = CanEqual.derived
-  def directory(uri: Uri)(lastModified: Option[ZonedDateTime]): F[Result[Directory]] =
+  def directory(uri: Uri)(lastModified: Option[Instant]): F[Result[Directory]] =
     for
       headers <- getHeaders[F](locale, compression, lastModified)
       result <- client.run(GET(uri, headers)).use { response =>

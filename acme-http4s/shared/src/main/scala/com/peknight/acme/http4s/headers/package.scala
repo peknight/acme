@@ -10,7 +10,7 @@ import org.http4s.*
 import org.http4s.CacheDirective.`max-age`
 import org.http4s.headers.*
 
-import java.time.ZonedDateTime
+import java.time.Instant
 import java.util.Locale
 import scala.concurrent.duration.*
 
@@ -43,10 +43,10 @@ package object headers:
       Headers(userAgent, acceptCharset, acceptLang) ++ (if compression then Headers(acceptEncoding) else Headers.empty)
     )
 
-  private def ifModifiedSince(lastModified: ZonedDateTime): `If-Modified-Since` =
-    `If-Modified-Since`(HttpDate.unsafeFromZonedDateTime(lastModified))
+  private def ifModifiedSince(lastModified: Instant): `If-Modified-Since` =
+    `If-Modified-Since`(HttpDate.unsafeFromInstant(lastModified))
 
-  def getHeaders[F[_]: Sync](locale: Locale, compression: Boolean, lastModified: Option[ZonedDateTime]): F[Headers] =
+  def getHeaders[F[_]: Sync](locale: Locale, compression: Boolean, lastModified: Option[Instant]): F[Headers] =
     headers(locale, compression).map(
       _ ++ Headers(accept) ++ lastModified.fold(Headers.empty)(last => Headers(ifModifiedSince(last)))
     )
@@ -57,7 +57,7 @@ package object headers:
   def responseHeaders[F[_]: Sync](headers: Headers, uri: Uri): F[com.peknight.acme.Headers] =
     val nonce = headers.get[`Replay-Nonce`].map(_.nonce)
     val location = headers.get[Location].map(loc => uri.resolve(loc.uri))
-    val lastModified = headers.get[`Last-Modified`].map(last => ZonedDateTime.from(last.date.toInstant))
+    val lastModified = headers.get[`Last-Modified`].map(last => last.date.toInstant)
     given CanEqual[Duration, Duration] = CanEqual.derived
     val expirationF = headers.get[`Cache-Control`]
       .flatMap { _.values.collectFirst {
@@ -65,9 +65,7 @@ package object headers:
           Clock.realTimeInstant[F].map(_.plusSeconds(deltaSeconds.toSeconds))
       }}
       .sequence
-      .map(_.orElse(headers.get[Expires].map(expires => expires.expirationDate.toInstant))
-        .map(ZonedDateTime.from)
-      )
+      .map(_.orElse(headers.get[Expires].map(expires => expires.expirationDate.toInstant)))
     val links = headers.get[Link].map{_.values.map(_.rel).collect { case Some(rel) => rel }}
     expirationF.map(expiration => com.peknight.acme.Headers(nonce, location, lastModified, expiration, links))
 end headers
