@@ -1,6 +1,6 @@
 ThisBuild / version := "0.1.0-SNAPSHOT"
 
-ThisBuild / scalaVersion := "3.4.2"
+ThisBuild / scalaVersion := "3.5.0"
 
 ThisBuild / organization := "com.peknight"
 
@@ -20,6 +20,8 @@ lazy val acme = (project in file("."))
     acmeCore.jvm,
     acmeCore.js,
     acmeInstances,
+    acmeJose.jvm,
+    acmeJose.js,
     acmeLetsEncrypt.jvm,
     acmeLetsEncrypt.js,
     acmeApi.jvm,
@@ -66,6 +68,14 @@ lazy val acmeCirceInstances = (crossProject(JSPlatform, JVMPlatform) in file("ac
     ),
   )
 
+lazy val acmeJose = (crossProject(JSPlatform, JVMPlatform) in file("acme-jose"))
+  .settings(commonSettings)
+  .settings(
+    name := "acme-jose",
+    libraryDependencies ++= Seq(
+      "com.peknight" %%% "jose-core" % pekJoseVersion,
+    ),
+  )
 
 lazy val acmeLetsEncrypt = (crossProject(JSPlatform, JVMPlatform) in file("acme-lets-encrypt"))
   .dependsOn(acmeCore)
@@ -116,9 +126,10 @@ lazy val acmeHttp4s = (crossProject(JSPlatform, JVMPlatform) in file("acme-http4
 val http4sVersion = "1.0.0-M34"
 val catsEffectTestingScalaTestVersion = "1.5.0"
 val log4CatsVersion = "2.7.0"
-val logbackVersion = "1.5.6"
+val logbackVersion = "1.5.15"
 val pekVersion = "0.1.0-SNAPSHOT"
 val pekCodecVersion = pekVersion
+val pekJoseVersion = pekVersion
 val pekExtVersion = pekVersion
 val pekErrorVersion = pekVersion
 val pekLoggingVersion = pekVersion
@@ -126,4 +137,3 @@ val pekLoggingVersion = pekVersion
 val log4CatsSlf4j = "org.typelevel" %% "log4cats-slf4j" % log4CatsVersion
 val logbackClassic = "ch.qos.logback" % "logback-classic" % logbackVersion
 val pekLogbackConfig = "com.peknight" %% "logback-config" % pekLoggingVersion
-

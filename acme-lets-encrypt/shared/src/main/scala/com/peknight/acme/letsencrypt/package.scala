@@ -7,8 +7,8 @@ import com.peknight.acme.letsencrypt.uri.{directory, stagingDirectory}
 import com.peknight.acme.uri.scheme.acme
 import com.peknight.error.Error
 import org.http4s.Uri
+import org.http4s.Uri.Host
 import org.http4s.Uri.Path.Segment
-import org.http4s.Uri.{Host, Scheme}
 
 package object letsencrypt:
   given CanEqual[Vector[Segment], Vector[Segment]] = CanEqual.derived
