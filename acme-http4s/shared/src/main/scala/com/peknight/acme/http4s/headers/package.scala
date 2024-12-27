@@ -2,6 +2,7 @@ package com.peknight.acme.http4s
 
 import cats.data.NonEmptyList
 import cats.effect.Sync
+import cats.syntax.eq.*
 import cats.syntax.functor.*
 import cats.syntax.traverse.*
 import com.peknight.cats.effect.ext.Clock
@@ -58,10 +59,9 @@ package object headers:
     val nonce = headers.get[`Replay-Nonce`].map(_.nonce)
     val location = headers.get[Location].map(loc => uri.resolve(loc.uri))
     val lastModified = headers.get[`Last-Modified`].map(last => last.date.toInstant)
-    given CanEqual[Duration, Duration] = CanEqual.derived
     val expirationF = headers.get[`Cache-Control`]
       .flatMap { _.values.collectFirst {
-        case `max-age`(deltaSeconds) if deltaSeconds != 0.second =>
+        case `max-age`(deltaSeconds) if deltaSeconds =!= 0.second =>
           Clock.realTimeInstant[F].map(_.plusSeconds(deltaSeconds.toSeconds))
       }}
       .sequence
