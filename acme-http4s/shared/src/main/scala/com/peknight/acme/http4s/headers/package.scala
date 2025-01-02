@@ -5,8 +5,10 @@ import cats.effect.Sync
 import cats.syntax.eq.*
 import cats.syntax.functor.*
 import cats.syntax.traverse.*
+import com.peknight.acme.ACMEHeader
 import com.peknight.cats.effect.ext.Clock
-import com.peknight.http4s.ext.MediaRange.{`application/jose+json`, `application/json`}
+import com.peknight.http4s.ext.MediaRange.`application/json`
+import com.peknight.jose.http4s.MediaRange.`application/jose+json`
 import org.http4s.*
 import org.http4s.CacheDirective.`max-age`
 import org.http4s.headers.*
@@ -55,7 +57,7 @@ package object headers:
   def postHeaders[F[_]: Sync](locale: Locale, compression: Boolean): F[Headers] =
     headers(locale, compression).map(_ ++ Headers(accept, `Content-Type`(`application/jose+json`)))
 
-  def responseHeaders[F[_]: Sync](headers: Headers, uri: Uri): F[com.peknight.acme.Headers] =
+  def responseHeaders[F[_]: Sync](headers: Headers, uri: Uri): F[ACMEHeader] =
     val nonce = headers.get[`Replay-Nonce`].map(_.nonce)
     val location = headers.get[Location].map(loc => uri.resolve(loc.uri))
     val lastModified = headers.get[`Last-Modified`].map(last => last.date.toInstant)
@@ -67,5 +69,5 @@ package object headers:
       .sequence
       .map(_.orElse(headers.get[Expires].map(expires => expires.expirationDate.toInstant)))
     val links = headers.get[Link].map{_.values.map(_.rel).collect { case Some(rel) => rel }}
-    expirationF.map(expiration => com.peknight.acme.Headers(nonce, location, lastModified, expiration, links))
+    expirationF.map(expiration => ACMEHeader(nonce, location, lastModified, expiration, links))
 end headers
