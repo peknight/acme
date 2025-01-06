@@ -6,7 +6,7 @@ import cats.syntax.eq.*
 import cats.syntax.flatMap.*
 import cats.syntax.functor.*
 import cats.syntax.option.*
-import com.peknight.acme.http4s.headers.{getHeaders, responseHeaders}
+import com.peknight.acme.headers.getHeaders
 import com.peknight.acme.{Directory, Result, api}
 import com.peknight.codec.http4s.circe.instances.entityDecoder.given
 import org.http4s.Method.GET
@@ -24,14 +24,8 @@ class ACMEApi[F[_]: Async](locale: Locale, compression: Boolean)(client: Client[
     for
       headers <- getHeaders[F](locale, compression, lastModified)
       result <- client.run(GET(uri, headers)).use { response =>
-        val directory =
-          if Status.NotModified === response.status then none[Directory].pure[F]
-          else response.as[Directory].map(_.some)
-        for
-          dir <- directory
-          headers <- responseHeaders[F](response.headers, uri)
-        yield
-          Result(dir, headers)
+        if Status.NotModified === response.status then Result(response.headers, none[Directory]).pure[F]
+        else response.as[Directory].map(dir => Result(response.headers, dir.some))
       }
     yield result
 end ACMEApi

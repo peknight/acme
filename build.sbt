@@ -38,11 +38,10 @@ lazy val acmeCore = (crossProject(JSPlatform, JVMPlatform) in file("acme-core"))
   .settings(
     name := "acme-core",
     libraryDependencies ++= Seq(
-      "org.http4s" %%% "http4s-core" % http4sVersion,
-      "com.peknight" %%% "codec-base" % pekCodecVersion,
-      "com.peknight" %%% "codec-circe" % pekCodecVersion,
+      "com.peknight" %%% "jose-core" % pekJoseVersion,
       "com.peknight" %%% "codec-ip4s" % pekCodecVersion,
-      "com.peknight" %%% "codec-http4s" % pekCodecVersion,
+      "com.peknight" %%% "cats-effect-ext" % pekExtVersion,
+      "com.peknight" %%% "http4s-ext" % pekExtVersion,
     ),
   )
 
@@ -61,8 +60,6 @@ lazy val acmeLetsEncrypt = (crossProject(JSPlatform, JVMPlatform) in file("acme-
   .settings(
     name := "acme-lets-encrypt",
     libraryDependencies ++= Seq(
-      "org.http4s" %%% "http4s-core" % http4sVersion,
-      "com.peknight" %%% "error-core" % pekErrorVersion,
     ),
   )
 
@@ -84,11 +81,8 @@ lazy val acmeHttp4s = (crossProject(JSPlatform, JVMPlatform) in file("acme-http4
   .settings(
     name := "acme-http4s",
     libraryDependencies ++= Seq(
-      "com.peknight" %%% "jose-core" % pekJoseVersion,
       "org.http4s" %%% "http4s-client" % http4sVersion,
       "com.peknight" %%% "codec-http4s-circe" % pekCodecVersion,
-      "com.peknight" %%% "cats-effect-ext" % pekExtVersion,
-      "com.peknight" %%% "http4s-ext" % pekExtVersion,
       "org.http4s" %%% "http4s-ember-client" % http4sVersion % Test,
       "org.typelevel" %%% "cats-effect-testing-scalatest" % catsEffectTestingScalaTestVersion % Test,
     ),
@@ -104,7 +98,7 @@ lazy val acmeHttp4s = (crossProject(JSPlatform, JVMPlatform) in file("acme-http4
 val http4sVersion = "1.0.0-M34"
 val catsEffectTestingScalaTestVersion = "1.5.0"
 val log4CatsVersion = "2.7.0"
-val logbackVersion = "1.5.15"
+val logbackVersion = "1.5.16"
 val pekVersion = "0.1.0-SNAPSHOT"
 val pekCodecVersion = pekVersion
 val pekJoseVersion = pekVersion

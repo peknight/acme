@@ -17,9 +17,9 @@ case class Directory(
                       newNonce: Uri,
                       newAccount: Uri,
                       newOrder: Uri,
-                      newAuthorization: Option[Uri],
                       revokeCertificate: Uri,
                       keyChange: Uri,
+                      newAuthorization: Option[Uri] = None,
                       meta: Option[Meta] = None,
                       renewalInfo: Option[Uri] = None,
                       ext: JsonObject = JsonObject.empty

@@ -1,4 +1,4 @@
-package com.peknight.acme.http4s.headers
+package com.peknight.acme.headers
 
 import cats.parse.Parser0
 import com.peknight.codec.base.Base64UrlNoPad
