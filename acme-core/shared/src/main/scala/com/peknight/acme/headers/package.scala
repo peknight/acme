@@ -33,7 +33,7 @@ package object headers:
 
   private val acceptEncoding: `Accept-Encoding` = `Accept-Encoding`(ContentCoding.gzip)
 
-  def headers[F[_]: Sync](locale: Locale, compression: Boolean): F[Headers] =
+  def baseHeaders[F[_]: Sync](locale: Locale, compression: Boolean): F[Headers] =
     acceptLanguage[F](locale).map(acceptLang =>
       Headers(userAgent, acceptCharset, acceptLang) ++ (if compression then Headers(acceptEncoding) else Headers.empty)
     )
@@ -44,10 +44,10 @@ package object headers:
     `If-Modified-Since`(HttpDate.unsafeFromInstant(lastModified))
 
   def getHeaders[F[_]: Sync](locale: Locale, compression: Boolean, lastModified: Option[Instant]): F[Headers] =
-    headers(locale, compression).map(
+    baseHeaders(locale, compression).map(
       _ ++ Headers(accept) ++ lastModified.fold(Headers.empty)(last => Headers(ifModifiedSince(last)))
     )
 
   def postHeaders[F[_]: Sync](locale: Locale, compression: Boolean): F[Headers] =
-    headers(locale, compression).map(_ ++ Headers(accept, `Content-Type`(`application/jose+json`)))
+    baseHeaders(locale, compression).map(_ ++ Headers(accept, `Content-Type`(`application/jose+json`)))
 end headers
