@@ -19,14 +19,8 @@ lazy val acme = (project in file("."))
   .aggregate(
     acmeCore.jvm,
     acmeCore.js,
-    acmeJose.jvm,
-    acmeJose.js,
-    acmeLetsEncrypt.jvm,
-    acmeLetsEncrypt.js,
-    acmeApi.jvm,
-    acmeApi.js,
-    acmeHttp4s.jvm,
-    acmeHttp4s.js,
+    acmeServer,
+    acmeClient,
   )
   .settings(commonSettings)
   .settings(
@@ -45,41 +39,68 @@ lazy val acmeCore = (crossProject(JSPlatform, JVMPlatform) in file("acme-core"))
     ),
   )
 
-lazy val acmeJose = (crossProject(JSPlatform, JVMPlatform) in file("acme-jose"))
+lazy val acmeServer = (project in file("acme-server"))
+  .aggregate(
+    acmeServerCore.jvm,
+    acmeServerCore.js,
+  )
   .settings(commonSettings)
   .settings(
-    name := "acme-jose",
-    libraryDependencies ++= Seq(
-      "com.peknight" %%% "jose-core" % pekJoseVersion,
-    ),
+    name := "acme-server",
   )
 
-lazy val acmeLetsEncrypt = (crossProject(JSPlatform, JVMPlatform) in file("acme-lets-encrypt"))
+lazy val acmeServerCore = (crossProject(JSPlatform, JVMPlatform) in file("acme-server/core"))
   .dependsOn(acmeCore)
   .settings(commonSettings)
   .settings(
-    name := "acme-lets-encrypt",
+    name := "acme-server-core",
     libraryDependencies ++= Seq(
     ),
   )
 
-lazy val acmeApi = (crossProject(JSPlatform, JVMPlatform) in file("acme-api"))
+lazy val acmeClient = (project in file("acme-client"))
+  .aggregate(
+    acmeClientCore.jvm,
+    acmeClientCore.js,
+    acmeClientApi.jvm,
+    acmeClientApi.js,
+    acmeClientHttp4s.jvm,
+    acmeClientHttp4s.js,
+    acmeClientLetsEncrypt.jvm,
+    acmeClientLetsEncrypt.js,
+  )
+  .settings(commonSettings)
+  .settings(
+    name := "acme-client",
+  )
+
+lazy val acmeClientCore = (crossProject(JSPlatform, JVMPlatform) in file("acme-client/core"))
   .dependsOn(acmeCore)
   .settings(commonSettings)
   .settings(
-    name := "acme-api",
+    name := "acme-client-core",
+    libraryDependencies ++= Seq(
+      "com.peknight" %%% "http4s-ext" % pekExtVersion,
+    ),
+  )
+
+lazy val acmeClientApi = (crossProject(JSPlatform, JVMPlatform) in file("acme-client/api"))
+  .dependsOn(acmeClientCore)
+  .settings(commonSettings)
+  .settings(
+    name := "acme-client-api",
     libraryDependencies ++= Seq(
     ),
   )
 
-lazy val acmeHttp4s = (crossProject(JSPlatform, JVMPlatform) in file("acme-http4s"))
+lazy val acmeClientHttp4s = (crossProject(JSPlatform, JVMPlatform) in file("acme-client/http4s"))
   .dependsOn(
-    acmeApi,
-    acmeLetsEncrypt % Test,
+    acmeClientApi,
+    acmeClientLetsEncrypt % Test,
   )
   .settings(commonSettings)
   .settings(
-    name := "acme-http4s",
+    name := "acme-client-http4s",
     libraryDependencies ++= Seq(
       "org.http4s" %%% "http4s-client" % http4sVersion,
       "com.peknight" %%% "codec-http4s-circe" % pekCodecVersion,
@@ -93,6 +114,15 @@ lazy val acmeHttp4s = (crossProject(JSPlatform, JVMPlatform) in file("acme-http4
       log4CatsSlf4j % Test,
       pekLogbackConfig % Test,
       logbackClassic % Test,
+    ),
+  )
+
+lazy val acmeClientLetsEncrypt = (crossProject(JSPlatform, JVMPlatform) in file("acme-client/lets-encrypt"))
+  .dependsOn(acmeClientCore)
+  .settings(commonSettings)
+  .settings(
+    name := "acme-client-lets-encrypt",
+    libraryDependencies ++= Seq(
     ),
   )
 
