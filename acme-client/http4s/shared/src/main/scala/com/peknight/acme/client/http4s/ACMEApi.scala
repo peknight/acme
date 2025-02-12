@@ -11,11 +11,11 @@ import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.order.*
 import com.peknight.acme.Directory
+import com.peknight.acme.account.{NewAccountHttpResponse, NewAccountResponse}
 import com.peknight.acme.client.api
 import com.peknight.acme.client.error.{NewNonceRateLimited, NewNonceResponseStatus}
-import com.peknight.acme.client.headers.{baseHeaders, getHeaders}
-import com.peknight.acme.client.http.HttpCache
-import com.peknight.acme.syntax.headers.{getExpiration, getLastModified, getNonce, getRetryAfter}
+import com.peknight.acme.client.headers.{baseHeaders, getHeaders, postHeaders}
+import com.peknight.acme.syntax.headers.getNonce
 import com.peknight.cats.effect.ext.Clock
 import com.peknight.cats.instances.time.instant.given
 import com.peknight.codec.Decoder
@@ -25,9 +25,14 @@ import com.peknight.codec.http4s.circe.instances.entityDecoder.given
 import com.peknight.error.Error
 import com.peknight.error.option.OptionEmpty
 import com.peknight.error.syntax.applicativeError.asError
+import com.peknight.http4s.ext.HttpResponse
+import com.peknight.http4s.ext.syntax.headers.{getLastModified, getLocation, getRetryAfter}
+import com.peknight.jose.jws.JsonWebSignature
 import io.circe.Json
+import io.circe.syntax.*
 import org.http4s.*
-import org.http4s.Method.{GET, HEAD}
+import org.http4s.Method.{GET, HEAD, POST}
+import org.http4s.circe.*
 import org.http4s.client.Client
 import org.http4s.client.dsl.Http4sClientDsl
 
@@ -38,16 +43,13 @@ class ACMEApi[F[_]: Async](
                             locale: Locale,
                             compression: Boolean,
                             nonceRef: Ref[F, Option[Base64UrlNoPad]],
-                            directoryRef: Ref[F, Option[HttpCache[Directory]]]
+                            directoryRef: Ref[F, Option[HttpResponse[Directory]]]
                           )(client: Client[F])(dsl: Http4sClientDsl[F])
   extends api.ACMEApi[F]:
 
   import dsl.*
 
-  def directory(uri: Uri): F[Either[Error, Directory]] =
-    get[Directory](directoryRef, "directory")(cacheOption =>
-      getHeaders[F](locale, compression, cacheOption.flatMap(_.headers.getLastModified)).map(headers => GET(uri, headers))
-    )
+  def directory(uri: Uri): F[Either[Error, Directory]] = get[Directory](uri, directoryRef, "directory")
 
   def newNonce(uri: Uri): F[Either[Error, Base64UrlNoPad]] =
     val eitherF =
@@ -75,19 +77,22 @@ class ACMEApi[F[_]: Async](
         ()
     eitherT.value
 
-  private def updateNonce(response: Response[F]): F[Unit] =
-    response.headers.getNonce match
-      case Some(nonce) => nonceRef.set(nonce.some)
-      case _ => ().pure[F]
+  def newAccount(jws: JsonWebSignature, uri: Uri): F[Either[Error, NewAccountHttpResponse]] =
+    val eitherF =
+      for
+        headers <- postHeaders[F](locale, compression)
+        result <- client.run(POST(jws.asJson, uri, headers)).use(response => updateNonce(response).flatMap(_ =>
+          response.as[NewAccountResponse].map(body =>
+            response.headers.getLocation(uri)
+              .map(location => NewAccountHttpResponse(body, location))
+              .toRight(OptionEmpty.label("accountLocation"))
+          )
+        ))
+      yield
+        result
+    eitherF.asError.map(_.flatten)
 
-  private def getFromCache[A](cacheOption: Option[HttpCache[A]]): F[Option[A]] =
-    cacheOption match
-      case Some(HttpCache(_, Some(expiration), value)) =>
-        Clock.realTimeInstant[F].map(now => if now < expiration then value.some else none[A])
-      case _ => none[A].pure[F]
-
-  private def get[A](cacheRef: Ref[F, Option[HttpCache[A]]], label: String)
-                    (requestF: Option[HttpCache[A]] => F[Request[F]])
+  private def get[A](uri: Uri, cacheRef: Ref[F, Option[HttpResponse[A]]], label: String)
                     (using Decoder[Id, Cursor[Json], A])
   : F[Either[Error, A]] =
     val eitherF =
@@ -98,22 +103,32 @@ class ACMEApi[F[_]: Async](
           case Some(value) => value.asRight[Error].pure[F]
           case _ =>
             for
-              request <- requestF(cacheOption)
-              either <- client.run(request).use(response => updateNonce(response).flatMap { _ =>
+              headers <- getHeaders[F](locale, compression, cacheOption.flatMap(_.headers.getLastModified))
+              either <- client.run(GET(uri, headers)).use(response => updateNonce(response).flatMap { _ =>
                 if Status.NotModified === response.status then
-                  cacheOption.map(_.value).toRight(OptionEmpty.label(label)).pure[F]
+                  cacheOption.map(_.body).toRight(OptionEmpty.label(label)).pure[F]
                 else
                   for
-                    value <- response.as[A]
-                    expiration <- response.headers.getExpiration[F]
-                    _ <- cacheRef.set(HttpCache(response.headers, expiration, value).some)
+                    resp <- HttpResponse.fromResponse[F, A](response)
+                    _ <- cacheRef.set(resp.some)
                   yield
-                    value.asRight
+                    resp.body.asRight
               })
             yield
               either
       yield
         either
     eitherF.asError.map(_.flatten)
+
+  private def getFromCache[A](cacheOption: Option[HttpResponse[A]]): F[Option[A]] =
+    cacheOption match
+      case Some(HttpResponse(_, body, Some(expiration))) =>
+        Clock.realTimeInstant[F].map(now => if now < expiration then body.some else none[A])
+      case _ => none[A].pure[F]
+
+  private def updateNonce(response: Response[F]): F[Unit] =
+    response.headers.getNonce match
+      case Some(nonce) => nonceRef.set(nonce.some)
+      case _ => ().pure[F]
 
 end ACMEApi

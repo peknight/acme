@@ -12,7 +12,7 @@ import com.peknight.codec.{Codec, Decoder, Encoder}
 import io.circe.Json
 import org.http4s.Uri
 
-case class JWSHeaderExt(nonce: Base64UrlNoPad, url: Uri)
+case class JWSHeaderExt(url: Uri, nonce: Option[Base64UrlNoPad] = None)
 object JWSHeaderExt:
   given codecJWSHeaderExt[F[_], S](using Monad[F], ObjectType[S], NullType[S], StringType[S])
   : Codec[F, S, Cursor[S], JWSHeaderExt] =
