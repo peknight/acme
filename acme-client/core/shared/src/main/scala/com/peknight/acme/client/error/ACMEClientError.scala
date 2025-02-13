@@ -1,5 +1,5 @@
 package com.peknight.acme.client.error
 
-import com.peknight.acme.error.ACMEError
+import com.peknight.error.Error
 
-trait ACMEClientError extends ACMEError
+trait ACMEClientError extends Error
