@@ -4,16 +4,17 @@ import cats.data.EitherT
 import cats.effect.testing.scalatest.AsyncIOSpec
 import cats.effect.{IO, Ref}
 import cats.syntax.option.*
-import com.peknight.acme.Directory
 import com.peknight.acme.account.AccountClaims
 import com.peknight.acme.client.jose.createJoseRequest
 import com.peknight.acme.client.letsencrypt.uri
 import com.peknight.acme.client.letsencrypt.uri.stagingDirectory
+import com.peknight.acme.directory.Directory
 import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.error.syntax.applicativeError.asError
 import com.peknight.http4s.ext.HttpResponse
 import com.peknight.security.Security
 import com.peknight.security.bouncycastle.jce.provider.BouncyCastleProvider
+import com.peknight.security.cipher.RSA
 import com.peknight.security.ecc.sec.secp256r1
 import org.http4s.*
 import org.http4s.client.dsl
@@ -48,10 +49,14 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 provider <- EitherT(BouncyCastleProvider[IO].asError)
                 _ <- EitherT(Security.addProvider[IO](provider).asError)
                 userKeyPair <- EitherT(secp256r1.generateKeyPair[IO](provider = Some(provider)).asError)
-                accountJws <- EitherT(createJoseRequest[IO, AccountClaims](directory.newAccount,
-                  AccountClaims(termsOfServiceAgreed = Some(true)), userKeyPair, nonce))
-                account <- EitherT(api.newAccount(accountJws, directory.newAccount))
-                _ <- EitherT(info"account: $account".asError)
+                // accountJws <- EitherT(createJoseRequest[IO, AccountClaims](directory.newAccount,
+                //   AccountClaims(termsOfServiceAgreed = Some(true)), userKeyPair, nonce))
+                // _ <- EitherT(info"accountJws: $accountJws".asError)
+                // account <- EitherT(api.newAccount(accountJws, directory.newAccount))
+                // _ <- EitherT(info"account: $account".asError)
+                // accountLocation <- EitherT(api.accountLocation(account.location))
+                // _ <- EitherT(info"accountLocation: $accountLocation".asError)
+                // domainKeyPair <- EitherT(RSA.keySizeGenerateKeyPair[IO](4096).asError)
               yield
                 directory
             eitherT.value

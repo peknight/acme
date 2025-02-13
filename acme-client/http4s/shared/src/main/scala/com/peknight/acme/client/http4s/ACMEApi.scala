@@ -10,11 +10,11 @@ import cats.syntax.flatMap.*
 import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.order.*
-import com.peknight.acme.Directory
 import com.peknight.acme.account.{NewAccountHttpResponse, NewAccountResponse}
 import com.peknight.acme.client.api
 import com.peknight.acme.client.error.{NewNonceRateLimited, NewNonceResponseStatus}
 import com.peknight.acme.client.headers.{baseHeaders, getHeaders, postHeaders}
+import com.peknight.acme.directory.Directory
 import com.peknight.acme.syntax.headers.getNonce
 import com.peknight.cats.effect.ext.Clock
 import com.peknight.cats.instances.time.instant.given
@@ -91,6 +91,15 @@ class ACMEApi[F[_]: Async](
       yield
         result
     eitherF.asError.map(_.flatten)
+
+  def accountLocation(location: Uri): F[Either[Error, String]] =
+    val eitherF =
+      for
+        headers <- postHeaders[F](locale, compression)
+        result <- client.run(POST(location, headers)).use(response => response.as[String])
+      yield
+        result
+    eitherF.asError
 
   private def get[A](uri: Uri, cacheRef: Ref[F, Option[HttpResponse[A]]], label: String)
                     (using Decoder[Id, Cursor[Json], A])

@@ -1,6 +1,6 @@
 package com.peknight.acme.client.api
 
-import com.peknight.acme.Directory
+import com.peknight.acme.directory.Directory
 import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.error.Error
 import org.http4s.Uri

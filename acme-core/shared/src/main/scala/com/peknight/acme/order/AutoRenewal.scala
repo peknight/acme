@@ -1,0 +1,42 @@
+package com.peknight.acme.order
+
+import cats.Monad
+import com.peknight.codec.circe.Ext
+import com.peknight.codec.circe.iso.codec
+import com.peknight.codec.circe.sum.jsonType.given
+import com.peknight.codec.configuration.CodecConfiguration
+import com.peknight.codec.cursor.Cursor
+import com.peknight.codec.instances.time.duration.codecDurationOfSecondsNS
+import com.peknight.codec.sum.*
+import com.peknight.codec.{Codec, Decoder, Encoder}
+import com.peknight.commons.string.cases.KebabCase
+import com.peknight.commons.string.syntax.cases.to
+import io.circe.{Json, JsonObject}
+
+import java.time.Instant
+import scala.concurrent.duration.Duration
+
+/**
+ * RFC8739
+ */
+case class AutoRenewal(
+                        startDate: Option[Instant] = None,
+                        endDate: Option[Instant] = None,
+                        lifetime: Option[Duration] = None,
+                        lifetimeAdjust: Option[Duration] = None,
+                        allowCertificateGet: Option[Boolean] = None,
+                        ext: JsonObject = JsonObject.empty
+                      ) extends Ext
+object AutoRenewal:
+  given codecAutoRenewal[F[_], S](using Monad[F], ObjectType[S], NullType[S], ArrayType[S], BooleanType[S],
+                                  NumberType[S], StringType[S], Encoder[F, S, JsonObject],
+                                  Decoder[F, Cursor[S], JsonObject]): Codec[F, S, Cursor[S], AutoRenewal] =
+    given CodecConfiguration = CodecConfiguration.default
+      .withTransformMemberNames(_.to(KebabCase))
+      .withExtField("ext")
+    given Codec[F, S, Cursor[S], Duration] = codecDurationOfSecondsNS
+    Codec.derived[F, S, AutoRenewal]
+  given jsonCodecAutoRenewal[F[_]: Monad]: Codec[F, Json, Cursor[Json], AutoRenewal] =
+    codecAutoRenewal[F, Json]
+  given circeCodecAutoRenewal: io.circe.Codec[AutoRenewal] = codec[AutoRenewal]
+end AutoRenewal

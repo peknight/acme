@@ -19,7 +19,6 @@ lazy val acme = (project in file("."))
   .aggregate(
     acmeCore.jvm,
     acmeCore.js,
-    acmeServer,
     acmeClient,
   )
   .settings(commonSettings)
@@ -37,16 +36,6 @@ lazy val acmeCore = (crossProject(JSPlatform, JVMPlatform) in file("acme-core"))
       "com.peknight" %%% "cats-effect-ext" % pekExtVersion,
       "com.peknight" %%% "http4s-ext" % pekExtVersion,
     ),
-  )
-
-lazy val acmeServer = (project in file("acme-server"))
-  .aggregate(
-    acmeServerCore.jvm,
-    acmeServerCore.js,
-  )
-  .settings(commonSettings)
-  .settings(
-    name := "acme-server",
   )
 
 lazy val acmeServerCore = (crossProject(JSPlatform, JVMPlatform) in file("acme-server/core"))

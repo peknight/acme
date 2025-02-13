@@ -14,10 +14,13 @@ import org.http4s.Uri
 
 case class Account(
                     status: AccountStatus,
+                    orders: Uri,
                     contact: Option[List[Uri]],
                     termsOfServiceAgreed: Option[Boolean],
+                    onlyReturnExisting: Option[Boolean],
                     externalAccountBinding: Option[JsonWebSignature],
-                    orders: Uri
+                    // RFC9115
+                    delegations: Option[Uri]
                   )
 object Account:
   given codecAccount[F[_], S](using Monad[F], ObjectType[S], NullType[S], ArrayType[S], BooleanType[S], NumberType[S],
