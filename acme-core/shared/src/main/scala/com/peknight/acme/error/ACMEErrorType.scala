@@ -1,5 +1,12 @@
 package com.peknight.acme.error
 
+import cats.Applicative
+import com.peknight.codec.Codec
+import com.peknight.codec.configuration.CodecConfiguration
+import com.peknight.codec.cursor.Cursor
+import com.peknight.codec.derivation.EnumCodecDerivation
+import com.peknight.codec.sum.StringType
+
 enum ACMEErrorType:
   case
   // The request specified an account that does not exist [RFC8555]
@@ -62,4 +69,10 @@ enum ACMEErrorType:
   unknownDelegation,
   // The CA only supports checking CAA for hidden services in-band, but the client has not provided an in-band CAA [RFC-ietf-acme-onion-07]
   onionCAARequired
+end ACMEErrorType
+object ACMEErrorType:
+  given stringCodecACMEErrorType[F[_]: Applicative]: Codec[F, String, String, ACMEErrorType] =
+    EnumCodecDerivation.unsafeDerivedStringCodecEnum[F, ACMEErrorType](using CodecConfiguration.default)
+  given codecACMEErrorType[F[_]: Applicative, S: StringType]: Codec[F, S, Cursor[S], ACMEErrorType] =
+    Codec.codecS[F, S, ACMEErrorType]
 end ACMEErrorType
