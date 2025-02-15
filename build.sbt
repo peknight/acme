@@ -38,15 +38,6 @@ lazy val acmeCore = (crossProject(JSPlatform, JVMPlatform) in file("acme-core"))
     ),
   )
 
-lazy val acmeServerCore = (crossProject(JSPlatform, JVMPlatform) in file("acme-server/core"))
-  .dependsOn(acmeCore)
-  .settings(commonSettings)
-  .settings(
-    name := "acme-server-core",
-    libraryDependencies ++= Seq(
-    ),
-  )
-
 lazy val acmeClient = (project in file("acme-client"))
   .aggregate(
     acmeClientCore.jvm,
