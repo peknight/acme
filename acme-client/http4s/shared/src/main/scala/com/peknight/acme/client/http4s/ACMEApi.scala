@@ -15,6 +15,7 @@ import com.peknight.acme.client.api
 import com.peknight.acme.client.error.{NewNonceRateLimited, NewNonceResponseStatus}
 import com.peknight.acme.client.headers.{baseHeaders, getHeaders, postHeaders}
 import com.peknight.acme.directory.Directory
+import com.peknight.acme.error.ACMEError
 import com.peknight.acme.syntax.headers.getNonce
 import com.peknight.cats.effect.ext.Clock
 import com.peknight.cats.instances.time.instant.given
@@ -117,11 +118,10 @@ class ACMEApi[F[_]: Async](
                 if Status.NotModified === response.status then
                   cacheOption.map(_.body).toRight(OptionEmpty.label(label)).pure[F]
                 else
-                  for
-                    resp <- HttpResponse.fromResponse[F, A](response)
-                    _ <- cacheRef.set(resp.some)
-                  yield
-                    resp.body.asRight
+                  HttpResponse.fromResponse[F, A](response).asError.flatMap {
+                    case Right(resp) => cacheRef.set(resp.some).map(_ => resp.body.asRight)
+                    case Left(error) => response.as[ACMEError].asError.map(_.getOrElse(error).asLeft)
+                  }
               })
             yield
               either
@@ -139,5 +139,8 @@ class ACMEApi[F[_]: Async](
     response.headers.getNonce match
       case Some(nonce) => nonceRef.set(nonce.some)
       case _ => ().pure[F]
+
+  private def getEither[A](response: Response[F]): F[Either[Error, A]] =
+    response.as[A]
 
 end ACMEApi
