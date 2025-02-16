@@ -27,7 +27,7 @@ import com.peknight.error.Error
 import com.peknight.error.option.OptionEmpty
 import com.peknight.error.syntax.applicativeError.asError
 import com.peknight.http4s.ext.HttpResponse
-import com.peknight.http4s.ext.syntax.headers.{getLastModified, getLocation, getRetryAfter}
+import com.peknight.http4s.ext.syntax.headers.{getLastModified, getLocation, getRetryAfter, getExpiration}
 import com.peknight.jose.jws.JsonWebSignature
 import io.circe.Json
 import io.circe.syntax.*
@@ -139,8 +139,4 @@ class ACMEApi[F[_]: Async](
     response.headers.getNonce match
       case Some(nonce) => nonceRef.set(nonce.some)
       case _ => ().pure[F]
-
-  private def getEither[A](response: Response[F]): F[Either[Error, A]] =
-    response.as[A]
-
 end ACMEApi
