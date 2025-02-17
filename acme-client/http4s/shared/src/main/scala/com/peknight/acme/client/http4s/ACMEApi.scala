@@ -12,7 +12,6 @@ import cats.syntax.option.*
 import cats.syntax.order.*
 import com.peknight.acme.account.{NewAccountHttpResponse, NewAccountResponse}
 import com.peknight.acme.client.api
-import com.peknight.acme.client.error.{NewNonceRateLimited, NewNonceResponseStatus}
 import com.peknight.acme.client.headers.{baseHeaders, getHeaders, postHeaders}
 import com.peknight.acme.directory.Directory
 import com.peknight.acme.error.ACMEError
@@ -27,7 +26,7 @@ import com.peknight.error.Error
 import com.peknight.error.option.OptionEmpty
 import com.peknight.error.syntax.applicativeError.asError
 import com.peknight.http4s.ext.HttpResponse
-import com.peknight.http4s.ext.syntax.headers.{getLastModified, getLocation, getRetryAfter, getExpiration}
+import com.peknight.http4s.ext.syntax.headers.{getLastModified, getLocation}
 import com.peknight.jose.jws.JsonWebSignature
 import io.circe.Json
 import io.circe.syntax.*
@@ -56,14 +55,10 @@ class ACMEApi[F[_]: Async](
     val eitherF =
       for
         headers <- baseHeaders[F](locale, compression)
-        either <- client.run(HEAD(uri, headers)).use { response =>
-          if Status.Ok =!= response.status && Status.NoContent =!= response.status then
-            response.headers.getRetryAfter match
-              case Some(retryAfter) => NewNonceRateLimited(response.status, retryAfter).asLeft.pure[F]
-              case _ => NewNonceResponseStatus(response.status).asLeft.pure[F]
-          else
-            response.headers.getNonce.toRight(OptionEmpty.label("nonce")).pure[F]
-        }
+        either <- client.run(HEAD(uri, headers)).use(response =>
+          if response.status.isSuccess then response.headers.getNonce.toRight(OptionEmpty.label("nonce")).pure
+          else response.as[ACMEError].map(_.asLeft)
+        )
       yield
         either
     eitherF.asError.map(_.flatten)
@@ -83,24 +78,16 @@ class ACMEApi[F[_]: Async](
       for
         headers <- postHeaders[F](locale, compression)
         result <- client.run(POST(jws.asJson, uri, headers)).use(response => updateNonce(response).flatMap(_ =>
-          response.as[NewAccountResponse].map(body =>
-            response.headers.getLocation(uri)
-              .map(location => NewAccountHttpResponse(body, location))
+          if response.status.isSuccess then
+            response.as[NewAccountResponse].map(body => response.headers.getLocation(uri)
               .toRight(OptionEmpty.label("accountLocation"))
-          )
+              .map(location => NewAccountHttpResponse(body, location))
+            )
+          else response.as[ACMEError].map(_.asLeft)
         ))
       yield
         result
     eitherF.asError.map(_.flatten)
-
-  def accountLocation(location: Uri): F[Either[Error, String]] =
-    val eitherF =
-      for
-        headers <- postHeaders[F](locale, compression)
-        result <- client.run(POST(location, headers)).use(response => response.as[String])
-      yield
-        result
-    eitherF.asError
 
   private def get[A](uri: Uri, cacheRef: Ref[F, Option[HttpResponse[A]]], label: String)
                     (using Decoder[Id, Cursor[Json], A])
@@ -114,15 +101,17 @@ class ACMEApi[F[_]: Async](
           case _ =>
             for
               headers <- getHeaders[F](locale, compression, cacheOption.flatMap(_.headers.getLastModified))
-              either <- client.run(GET(uri, headers)).use(response => updateNonce(response).flatMap { _ =>
+              either <- client.run(GET(uri, headers)).use(response => updateNonce(response).flatMap(_ =>
                 if Status.NotModified === response.status then
-                  cacheOption.map(_.body).toRight(OptionEmpty.label(label)).pure[F]
-                else
-                  HttpResponse.fromResponse[F, A](response).asError.flatMap {
-                    case Right(resp) => cacheRef.set(resp.some).map(_ => resp.body.asRight)
-                    case Left(error) => response.as[ACMEError].asError.map(_.getOrElse(error).asLeft)
-                  }
-              })
+                  cacheOption.map(_.body).toRight(OptionEmpty.label(label)).pure
+                else if response.status.isSuccess then
+                  for
+                    resp <- HttpResponse.fromResponse[F, A](response)
+                    _ <- cacheRef.set(resp.some)
+                  yield
+                    resp.body.asRight
+                else response.as[ACMEError].map(_.asLeft)
+              ))
             yield
               either
       yield

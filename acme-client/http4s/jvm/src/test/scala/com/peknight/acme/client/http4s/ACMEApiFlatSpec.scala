@@ -49,14 +49,12 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 provider <- EitherT(BouncyCastleProvider[IO].asError)
                 _ <- EitherT(Security.addProvider[IO](provider).asError)
                 userKeyPair <- EitherT(secp256r1.generateKeyPair[IO](provider = Some(provider)).asError)
-                // accountJws <- EitherT(createJoseRequest[IO, AccountClaims](directory.newAccount,
-                //   AccountClaims(termsOfServiceAgreed = Some(true)), userKeyPair, nonce))
-                // _ <- EitherT(info"accountJws: $accountJws".asError)
-                // account <- EitherT(api.newAccount(accountJws, directory.newAccount))
-                // _ <- EitherT(info"account: $account".asError)
-                // accountLocation <- EitherT(api.accountLocation(account.location))
-                // _ <- EitherT(info"accountLocation: $accountLocation".asError)
-                // domainKeyPair <- EitherT(RSA.keySizeGenerateKeyPair[IO](4096).asError)
+                accountJws <- EitherT(createJoseRequest[IO, AccountClaims](directory.newAccount,
+                  AccountClaims(termsOfServiceAgreed = Some(true)), userKeyPair, nonce))
+                _ <- EitherT(info"accountJws: $accountJws".asError)
+                account <- EitherT(api.newAccount(accountJws, directory.newAccount))
+                _ <- EitherT(info"account: $account".asError)
+                domainKeyPair <- EitherT(RSA.keySizeGenerateKeyPair[IO](4096).asError)
               yield
                 directory
             eitherT.value
