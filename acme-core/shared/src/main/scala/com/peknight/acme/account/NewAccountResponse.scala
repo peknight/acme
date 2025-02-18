@@ -13,10 +13,12 @@ import io.circe.{Json, JsonObject}
 
 import java.time.Instant
 
-case class NewAccountResponse(key: Option[JsonWebKey],
-                              createdAt: Option[Instant],
-                              status: Option[AccountStatus],
-                              ext: JsonObject) extends Ext
+case class NewAccountResponse(
+                               key: Option[JsonWebKey],
+                               createdAt: Option[Instant],
+                               status: Option[AccountStatus],
+                               ext: JsonObject
+                             ) extends Ext
 object NewAccountResponse:
   given codecNewAccountResponse[F[_], S](using Monad[F], ObjectType[S], NullType[S], ArrayType[S], BooleanType[S],
                                          NumberType[S], StringType[S], Encoder[F, S, JsonObject],

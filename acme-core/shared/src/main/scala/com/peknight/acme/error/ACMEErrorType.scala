@@ -6,6 +6,7 @@ import com.peknight.codec.configuration.CodecConfiguration
 import com.peknight.codec.cursor.Cursor
 import com.peknight.codec.derivation.EnumCodecDerivation
 import com.peknight.codec.sum.StringType
+import org.http4s.Uri
 
 enum ACMEErrorType:
   case
@@ -69,8 +70,9 @@ enum ACMEErrorType:
   unknownDelegation,
   // The CA only supports checking CAA for hidden services in-band, but the client has not provided an in-band CAA [RFC-ietf-acme-onion-07]
   onionCAARequired
+  def `type`: Uri = Uri.unsafeFromString(s"urn:ietf:params:acme:error:$this")
 end ACMEErrorType
-object ACMEErrorType:
+object ACMEErrorType extends App:
   given stringCodecACMEErrorType[F[_]: Applicative]: Codec[F, String, String, ACMEErrorType] =
     EnumCodecDerivation.unsafeDerivedStringCodecEnum[F, ACMEErrorType](using CodecConfiguration.default)
   given codecACMEErrorType[F[_]: Applicative, S: StringType]: Codec[F, S, Cursor[S], ACMEErrorType] =

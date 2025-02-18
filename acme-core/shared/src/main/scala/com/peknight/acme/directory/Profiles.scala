@@ -12,10 +12,11 @@ import com.peknight.codec.{Codec, Decoder, Encoder}
 import io.circe.{Json, JsonObject}
 import org.http4s.Uri
 
-case class Profiles(classic: String, tlsServer: Uri, ext: JsonObject = JsonObject.empty) extends Ext
+case class Profiles(classic: String, tlsServer: Uri, shortLived: Option[String] = None, ext: JsonObject = JsonObject.empty) extends Ext
 object Profiles:
   private val memberNameMap: Map[String, String] = Map(
-    "tlsServer" -> "tlsserver"
+    "tlsServer" -> "tlsserver",
+    "shortLived" -> "shortlived"
   )
   given codecProfiles[F[_], S](using Monad[F], ObjectType[S], NullType[S], ArrayType[S], BooleanType[S], NumberType[S],
                                StringType[S], Encoder[F, S, JsonObject], Decoder[F, Cursor[S], JsonObject])

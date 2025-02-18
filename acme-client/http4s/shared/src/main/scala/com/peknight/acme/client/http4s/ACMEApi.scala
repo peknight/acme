@@ -25,7 +25,7 @@ import com.peknight.codec.http4s.circe.instances.entityDecoder.given
 import com.peknight.error.Error
 import com.peknight.error.option.OptionEmpty
 import com.peknight.error.syntax.applicativeError.asError
-import com.peknight.http4s.ext.HttpResponse
+import com.peknight.http.HttpResponse
 import com.peknight.http4s.ext.syntax.headers.{getLastModified, getLocation}
 import com.peknight.jose.jws.JsonWebSignature
 import io.circe.Json

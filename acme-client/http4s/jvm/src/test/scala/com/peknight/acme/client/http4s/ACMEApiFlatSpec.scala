@@ -11,7 +11,7 @@ import com.peknight.acme.client.letsencrypt.uri.stagingDirectory
 import com.peknight.acme.directory.Directory
 import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.error.syntax.applicativeError.asError
-import com.peknight.http4s.ext.HttpResponse
+import com.peknight.http.HttpResponse
 import com.peknight.security.Security
 import com.peknight.security.bouncycastle.jce.provider.BouncyCastleProvider
 import com.peknight.security.cipher.RSA

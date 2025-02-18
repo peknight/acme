@@ -22,8 +22,7 @@ case class Directory(
                       meta: Option[Meta] = None,
                       renewalInfo: Option[Uri] = None,
                       ext: JsonObject = JsonObject.empty
-                    )
-  extends Ext
+                    ) extends Ext
 object Directory:
   private val memberNameMap: Map[String, String] = Map(
     "newAuthorization" -> "newAuthz",
