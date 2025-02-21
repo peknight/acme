@@ -30,6 +30,8 @@ case class Order(
                   starCertificate: Option[Uri] = None,
                   allowCertificateGet: Option[Boolean] = None,
                   delegation: Option[Uri] = None,
+                  replaces: Option[String] = None,
+                  profile: Option[String] = None,
                   ext: JsonObject = JsonObject.empty
                 ) extends Ext
 object Order:
