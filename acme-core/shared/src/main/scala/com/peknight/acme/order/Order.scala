@@ -1,6 +1,7 @@
 package com.peknight.acme.order
 
 import cats.Monad
+import cats.data.NonEmptyList
 import com.peknight.acme.error.ACMEError
 import com.peknight.acme.identifier.Identifier
 import com.peknight.codec.circe.Ext
@@ -18,7 +19,7 @@ import java.time.Instant
 
 case class Order(
                   status: OrderStatus,
-                  identifiers: List[Identifier],
+                  identifiers: NonEmptyList[Identifier],
                   authorizations: List[Uri],
                   finalizeUri: Uri,
                   expires: Option[Instant] = None,

@@ -34,6 +34,7 @@ lazy val acmeCore = (crossProject(JSPlatform, JVMPlatform) in file("acme-core"))
       "com.peknight" %%% "jose-core" % pekJoseVersion,
       "com.peknight" %%% "http-core" % pekHttpVersion,
       "com.peknight" %%% "codec-ip4s" % pekCodecVersion,
+      "com.peknight" %%% "security-bcpkix" % pekSecurityVersion,
       "com.peknight" %%% "cats-effect-ext" % pekExtVersion,
       "com.peknight" %%% "http4s-ext" % pekExtVersion,
     ),

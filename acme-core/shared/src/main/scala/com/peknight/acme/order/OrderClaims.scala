@@ -1,6 +1,7 @@
 package com.peknight.acme.order
 
 import cats.Monad
+import cats.data.NonEmptyList
 import com.peknight.acme.identifier.Identifier
 import com.peknight.codec.circe.iso.codec
 import com.peknight.codec.circe.sum.jsonType.given
@@ -13,7 +14,7 @@ import io.circe.{Json, JsonObject}
 import java.time.Instant
 
 case class OrderClaims(
-                        identifiers: List[Identifier],
+                        identifiers: NonEmptyList[Identifier],
                         notBefore: Option[Instant] = None,
                         notAfter: Option[Instant] = None,
                         autoRenewal: Option[AutoRenewal] = None,
