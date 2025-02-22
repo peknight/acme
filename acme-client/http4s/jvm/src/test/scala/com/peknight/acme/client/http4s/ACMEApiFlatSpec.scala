@@ -40,10 +40,11 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 locale <- EitherT(IO.blocking(Locale.getDefault).asError)
                 nonceRef <- EitherT(Ref[IO].of(none[Base64UrlNoPad]).asError)
                 directoryRef <- EitherT(Ref[IO].of(none[HttpResponse[Directory]]).asError)
-                api = ACMEApi[IO](locale, true, nonceRef, directoryRef)(client)(dsl.io)
-                directory <- EitherT(api.directory(stagingDirectory))
+                acmeApi = ACMEApi[IO](locale, true, nonceRef, directoryRef)(client)(dsl.io)
+                acmeClient = ACMEClient[IO](acmeApi, nonceRef)
+                directory <- EitherT(acmeApi.directory(stagingDirectory))
                 _ <- EitherT(info"directory: $directory".asError)
-                _ <- EitherT(api.resetNonce(directory.newNonce))
+                _ <- EitherT(acmeClient.resetNonce(directory.newNonce))
                 nonce <- EitherT(nonceRef.get.asError)
                 _ <- EitherT(info"nonce: $nonce".asError)
                 provider <- EitherT(BouncyCastleProvider[IO].asError)
@@ -52,7 +53,7 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 accountJws <- EitherT(createJoseRequest[IO, AccountClaims](directory.newAccount,
                   AccountClaims(termsOfServiceAgreed = Some(true)), userKeyPair, nonce))
                 _ <- EitherT(info"accountJws: $accountJws".asError)
-                account <- EitherT(api.newAccount(accountJws, directory.newAccount))
+                account <- EitherT(acmeApi.newAccount(accountJws, directory.newAccount))
                 _ <- EitherT(info"account: $account".asError)
                 domainKeyPair <- EitherT(RSA.keySizeGenerateKeyPair[IO](4096).asError)
               yield

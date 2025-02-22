@@ -1,7 +1,6 @@
 package com.peknight.acme.client.http4s
 
 import cats.Id
-import cats.data.EitherT
 import cats.effect.{Async, Ref}
 import cats.syntax.applicative.*
 import cats.syntax.either.*
@@ -62,16 +61,6 @@ class ACMEApi[F[_]: Async](
       yield
         either
     eitherF.asError.map(_.flatten)
-
-  def resetNonce(uri: Uri): F[Either[Error, Unit]] =
-    val eitherT =
-      for
-        _ <- EitherT(nonceRef.set(none[Base64UrlNoPad]).asError)
-        nonce <- EitherT(newNonce(uri))
-        _ <- EitherT(nonceRef.set(nonce.some).asError)
-      yield
-        ()
-    eitherT.value
 
   def newAccount(jws: JsonWebSignature, uri: Uri): F[Either[Error, NewAccountHttpResponse]] =
     val eitherF =

@@ -6,13 +6,11 @@ import com.peknight.codec.circe.iso.codec
 import com.peknight.codec.circe.sum.jsonType.given
 import com.peknight.codec.configuration.CodecConfiguration
 import com.peknight.codec.cursor.Cursor
-import com.peknight.codec.http4s.instances.uri.given
 import com.peknight.codec.sum.*
 import com.peknight.codec.{Codec, Decoder, Encoder}
 import io.circe.{Json, JsonObject}
-import org.http4s.Uri
 
-case class Profiles(classic: String, tlsServer: Uri, shortLived: Option[String] = None, ext: JsonObject = JsonObject.empty) extends Ext
+case class Profiles(classic: String, tlsServer: String, shortLived: Option[String] = None, ext: JsonObject = JsonObject.empty) extends Ext
 object Profiles:
   private val memberNameMap: Map[String, String] = Map(
     "tlsServer" -> "tlsserver",

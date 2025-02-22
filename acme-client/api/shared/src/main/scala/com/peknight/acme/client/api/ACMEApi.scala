@@ -8,5 +8,4 @@ import org.http4s.Uri
 trait ACMEApi[F[_]]:
   def directory(uri: Uri): F[Either[Error, Directory]]
   def newNonce(uri: Uri): F[Either[Error, Base64UrlNoPad]]
-  def resetNonce(uri: Uri): F[Either[Error, Unit]]
 end ACMEApi
