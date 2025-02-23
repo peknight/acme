@@ -1,11 +1,14 @@
 package com.peknight.acme.client.http4s
 
-import cats.data.EitherT
+import cats.data.{EitherT, NonEmptyList}
 import cats.effect.IO
 import cats.effect.testing.scalatest.AsyncIOSpec
 import com.peknight.acme.account.AccountClaims
 import com.peknight.acme.client.letsencrypt.uri
 import com.peknight.acme.client.letsencrypt.uri.stagingDirectory
+import com.peknight.acme.identifier.Identifier
+import com.peknight.acme.order.OrderClaims
+import com.peknight.cats.ext.syntax.eitherT.eLiftET
 import com.peknight.error.syntax.applicativeError.asError
 import com.peknight.security.Security
 import com.peknight.security.bouncycastle.jce.provider.BouncyCastleProvider
@@ -37,6 +40,10 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 userKeyPair <- EitherT(secp256r1.generateKeyPair[IO](provider = Some(provider)).asError)
                 account <- EitherT(acmeClient.newAccount(AccountClaims(termsOfServiceAgreed = Some(true)), userKeyPair))
                 _ <- EitherT(info"account: $account".asError)
+                identifier <- Identifier.dns("www.peknight.com").eLiftET[IO]
+                order <- EitherT(acmeClient.newOrder(OrderClaims(NonEmptyList.one(identifier)), userKeyPair,
+                  account.location))
+                _ <- EitherT(info"order: $order".asError)
                 domainKeyPair <- EitherT(RSA.keySizeGenerateKeyPair[IO](4096).asError)
               yield
                 account

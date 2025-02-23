@@ -14,6 +14,7 @@ import com.peknight.acme.client.api
 import com.peknight.acme.client.headers.{baseHeaders, getHeaders, postHeaders}
 import com.peknight.acme.directory.Directory
 import com.peknight.acme.error.ACMEError
+import com.peknight.acme.order.{NewOrderHttpResponse, Order}
 import com.peknight.acme.syntax.headers.getNonce
 import com.peknight.cats.effect.ext.Clock
 import com.peknight.cats.instances.time.instant.given
@@ -21,6 +22,7 @@ import com.peknight.codec.Decoder
 import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.codec.cursor.Cursor
 import com.peknight.codec.http4s.circe.instances.entityDecoder.given
+import com.peknight.codec.syntax.encoder.asS
 import com.peknight.error.Error
 import com.peknight.error.option.OptionEmpty
 import com.peknight.error.syntax.applicativeError.asError
@@ -28,7 +30,6 @@ import com.peknight.http.HttpResponse
 import com.peknight.http4s.ext.syntax.headers.{getLastModified, getLocation}
 import com.peknight.jose.jws.JsonWebSignature
 import io.circe.Json
-import io.circe.syntax.*
 import org.http4s.*
 import org.http4s.Method.{GET, HEAD, POST}
 import org.http4s.circe.*
@@ -63,20 +64,12 @@ class ACMEApi[F[_]: Async](
     eitherF.asError.map(_.flatten)
 
   def newAccount(jws: JsonWebSignature, uri: Uri): F[Either[Error, NewAccountHttpResponse]] =
-    val eitherF =
-      for
-        headers <- postHeaders[F](locale, compression)
-        result <- client.run(POST(jws.asJson, uri, headers)).use(response => updateNonce(response).flatMap(_ =>
-          if response.status.isSuccess then
-            response.as[NewAccountResponse].map(body => response.headers.getLocation(uri)
-              .toRight(OptionEmpty.label("accountLocation"))
-              .map(location => NewAccountHttpResponse(body, location))
-            )
-          else response.as[ACMEError].map(_.asLeft)
-        ))
-      yield
-        result
-    eitherF.asError.map(_.flatten)
+    postJwsWithLocation[NewAccountResponse, NewAccountHttpResponse](jws, uri, "accountLocation")(
+      NewAccountHttpResponse.apply
+    )
+
+  def newOrder(jws: JsonWebSignature, uri: Uri): F[Either[Error, NewOrderHttpResponse]] =
+    postJwsWithLocation[Order, NewOrderHttpResponse](jws, uri, "orderLocation")(NewOrderHttpResponse.apply)
 
   private def get[A](uri: Uri, cacheRef: Ref[F, Option[HttpResponse[A]]], label: String)
                     (using Decoder[Id, Cursor[Json], A])
@@ -117,4 +110,27 @@ class ACMEApi[F[_]: Async](
     response.headers.getNonce match
       case Some(nonce) => nonceRef.set(nonce.some)
       case _ => ().pure[F]
+
+  private def postJwsWithLocation[A, B](jws: JsonWebSignature, uri: Uri, locationLabel: String)
+                                       (f: (A, Uri) => B)
+                                       (using Decoder[Id, Cursor[Json], A]): F[Either[Error, B]] =
+    postJws[A](jws, uri).map(_.flatMap {
+      case HttpResponse(headers, body, _) =>
+        headers.getLocation(uri)
+          .toRight(OptionEmpty.label(locationLabel))
+          .map(location => f(body, location))
+    })
+
+  private def postJws[A](jws: JsonWebSignature, uri: Uri)(using Decoder[Id, Cursor[Json], A])
+  : F[Either[Error, HttpResponse[A]]] =
+    val eitherF =
+      for
+        headers <- postHeaders[F](locale, compression)
+        result <- client.run(POST(jws.asS[Id, Json], uri, headers)).use(response => updateNonce(response).flatMap(_ =>
+          if response.status.isSuccess then HttpResponse.fromResponse[F, A](response).map(_.asRight)
+          else response.as[ACMEError].map(_.asLeft)
+        ))
+      yield
+        result
+    eitherF.asError.map(_.flatten)
 end ACMEApi

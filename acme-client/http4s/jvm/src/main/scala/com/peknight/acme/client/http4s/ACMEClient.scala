@@ -2,23 +2,25 @@ package com.peknight.acme.client.http4s
 
 import cats.data.EitherT
 import cats.effect.{Async, Ref, Sync}
-import cats.syntax.either.*
+import cats.syntax.eq.*
 import cats.syntax.flatMap.*
 import cats.syntax.functor.*
 import cats.syntax.option.*
 import com.peknight.acme.account.{AccountClaims, NewAccountHttpResponse}
 import com.peknight.acme.client.api
-import com.peknight.acme.client.error.CanNotCombineWithAutoRenewal
+import com.peknight.acme.client.error.*
 import com.peknight.acme.client.jose.createJoseRequest
 import com.peknight.acme.directory.Directory
-import com.peknight.acme.order.OrderClaims
+import com.peknight.acme.identifier.IdentifierType.dns
+import com.peknight.acme.order.{NewOrderHttpResponse, OrderClaims}
 import com.peknight.cats.effect.ext.Clock
-import com.peknight.cats.ext.syntax.eitherT.{eLiftET, rLiftET}
+import com.peknight.cats.ext.syntax.eitherT.{lLiftET, rLiftET}
 import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.commons.time.syntax.temporal.plus
 import com.peknight.error.Error
 import com.peknight.error.syntax.applicativeError.asError
 import com.peknight.http.HttpResponse
+import com.peknight.jose.jwk.KeyId
 import org.http4s.Uri
 import org.http4s.client.Client
 import org.http4s.client.dsl.Http4sClientDsl
@@ -75,17 +77,37 @@ class ACMEClient[F[_]: Sync](
         response
     eitherT.value
 
-  def newOrder(claims: OrderClaims): F[Either[Error, Unit]] =
+  def newOrder(claims: OrderClaims, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, NewOrderHttpResponse]] =
     val eitherT =
       for
-        _ <- claims.autoRenewal.fold(().asRight[Error]) { autoRenewal => (claims.notBefore, claims.notAfter) match
-          case (Some(_), Some(_)) => CanNotCombineWithAutoRenewal("notBefore&notAfter").asLeft
-          case (Some(_), None) => CanNotCombineWithAutoRenewal("notBefore").asLeft
-          case (None, Some(_)) => CanNotCombineWithAutoRenewal("notAfter").asLeft
-          case _ => ().asRight
-        }.eLiftET
+        directory <- EitherT(directory)
+        _ <- claims.autoRenewal.fold(().rLiftET[F, Error]) { autoRenewal => (claims.notBefore, claims.notAfter) match
+          case (Some(_), Some(_)) => CanNotCombineWithAutoRenewal("notBefore&notAfter").lLiftET
+          case (Some(_), None) => CanNotCombineWithAutoRenewal("notBefore").lLiftET
+          case (None, Some(_)) => CanNotCombineWithAutoRenewal("notAfter").lLiftET
+          case _ if !directory.meta.exists(_.autoRenewalEnabled) => AutoRenewalNotSupported.lLiftET
+          case _ if autoRenewal.allowCertificateGet.isDefined && !directory.meta.exists(_.autoRenewalGetAllowed) =>
+            AutoRenewalGetNotSupported.lLiftET
+          case _ => ().rLiftET
+        }
+        _ <-
+          if claims.replaces.isDefined && directory.renewalInfo.isEmpty then RenewalInfoNotSupported.lLiftET
+          else ().rLiftET
+        _ <- claims.profile.fold(().rLiftET[F, Error]) { profile =>
+          if !directory.meta.exists(_.profileAllowed(profile)) then ProfileNotSupported(profile).lLiftET
+          else ().rLiftET
+        }
+        hasAncestorDomain = claims.identifiers.filter(_.`type` === dns).exists(_.ancestorDomain.isDefined)
+        _ <-
+          if hasAncestorDomain && !directory.meta.flatMap(_.subdomainAuthAllowed).getOrElse(false) then
+            AncestorDomainNotSupported.lLiftET[F, Unit]
+          else ().rLiftET
+        nonce <- EitherT(nonce)
+        jws <- EitherT(createJoseRequest[F, OrderClaims](directory.newOrder, claims, keyPair, Some(nonce),
+          Some(KeyId(accountLocation.toString))))
+        response <- EitherT(acmeApi.newOrder(jws, directory.newOrder))
       yield
-        ()
+        response
     eitherT.value
 end ACMEClient
 object ACMEClient:

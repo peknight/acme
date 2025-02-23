@@ -1,9 +1,10 @@
 package com.peknight.acme.directory
 
-import cats.Monad
+import cats.{Id, Monad}
 import com.comcast.ip4s.Host
 import com.peknight.codec.circe.Ext
 import com.peknight.codec.circe.iso.codec
+import com.peknight.codec.syntax.encoder.asS
 import com.peknight.codec.circe.sum.jsonType.given
 import com.peknight.codec.configuration.CodecConfiguration
 import com.peknight.codec.cursor.Cursor
@@ -28,7 +29,13 @@ case class Meta(
                  onionCAARequired: Option[Boolean] = None,
                  profiles: Option[Profiles] = None,
                  ext: JsonObject = JsonObject.empty
-               ) extends Ext
+               ) extends Ext:
+  def autoRenewalEnabled: Boolean = autoRenewal.isDefined
+  def autoRenewalGetAllowed: Boolean = autoRenewal.flatMap(_.allowCertificateGet).getOrElse(false)
+  def profileAllowed: Boolean = profiles.isDefined
+  def profileAllowed(profile: String): Boolean = 
+    profiles.flatMap(_.asS[Id, Json].asObject).flatMap(_(profile)).isDefined
+end Meta
 object Meta:
   private val memberNameMap: Map[String, String] = Map(
     "autoRenewal" -> "auto-renewal",

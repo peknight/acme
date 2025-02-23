@@ -1,6 +1,6 @@
 package com.peknight.acme.identifier
 
-import cats.Applicative
+import cats.{Applicative, Eq}
 import com.peknight.codec.Codec
 import com.peknight.codec.configuration.CodecConfiguration
 import com.peknight.codec.cursor.Cursor
@@ -20,6 +20,7 @@ enum IdentifierType:
   RESERVED
 end IdentifierType
 object IdentifierType:
+  given Eq[IdentifierType] = Eq.fromUniversalEquals
   given stringCodecIdentifierType[F[_]: Applicative]: Codec[F, String, String, IdentifierType] =
     EnumCodecDerivation.unsafeDerivedStringCodecEnum[F, IdentifierType](using CodecConfiguration.default)
   given codecIdentifierType[F[_]: Applicative, S: StringType]: Codec[F, S, Cursor[S], IdentifierType] =
