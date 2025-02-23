@@ -9,7 +9,7 @@ import cats.syntax.option.*
 import com.peknight.acme.account.{AccountClaims, NewAccountHttpResponse}
 import com.peknight.acme.client.api
 import com.peknight.acme.client.error.*
-import com.peknight.acme.client.jose.createJoseRequest
+import com.peknight.acme.client.jose.signJson
 import com.peknight.acme.directory.Directory
 import com.peknight.acme.identifier.IdentifierType.dns
 import com.peknight.acme.order.{NewOrderHttpResponse, OrderClaims}
@@ -71,7 +71,7 @@ class ACMEClient[F[_]: Sync](
       for
         directory <- EitherT(directory)
         nonce <- EitherT(nonce)
-        jws <- EitherT(createJoseRequest[F, AccountClaims](directory.newAccount, claims, keyPair, Some(nonce)))
+        jws <- EitherT(signJson[F, AccountClaims](directory.newAccount, claims, keyPair, Some(nonce)))
         response <- EitherT(acmeApi.newAccount(jws, directory.newAccount))
       yield
         response
@@ -103,7 +103,7 @@ class ACMEClient[F[_]: Sync](
             AncestorDomainNotSupported.lLiftET[F, Unit]
           else ().rLiftET
         nonce <- EitherT(nonce)
-        jws <- EitherT(createJoseRequest[F, OrderClaims](directory.newOrder, claims, keyPair, Some(nonce),
+        jws <- EitherT(signJson[F, OrderClaims](directory.newOrder, claims, keyPair, Some(nonce),
           Some(KeyId(accountLocation.toString))))
         response <- EitherT(acmeApi.newOrder(jws, directory.newOrder))
       yield

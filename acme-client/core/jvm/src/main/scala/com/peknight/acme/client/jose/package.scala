@@ -20,13 +20,23 @@ import com.peknight.jose.jwx.{JoseConfiguration, JoseHeader}
 import io.circe.Json
 import org.http4s.Uri
 
-import java.security.{KeyPair, PublicKey}
+import java.security.{KeyPair, PrivateKey, PublicKey}
 import javax.crypto.SecretKey
 
 package object jose:
-  def createJoseRequest[F[_], A](url: Uri, payload: A, keyPair: KeyPair,
-                                 nonce: Option[Base64UrlNoPad] = None, keyId: Option[KeyId] = None)
-                                (using Sync[F], Encoder[Id, Json, A]): F[Either[Error, JsonWebSignature]] =
+  def signJson[F[_], A](url: Uri, payload: A, keyPair: KeyPair,
+                        nonce: Option[Base64UrlNoPad] = None, keyId: Option[KeyId] = None)
+                       (using Sync[F], Encoder[Id, Json, A]): F[Either[Error, JsonWebSignature]] =
+    sign[F](url, keyPair, nonce, keyId)((header, key) => JsonWebSignature.signJson[F, A](header, payload, key))
+
+  def signString[F[_]: Sync](url: Uri, payload: String, keyPair: KeyPair, nonce: Option[Base64UrlNoPad] = None,
+                             keyId: Option[KeyId] = None): F[Either[Error, JsonWebSignature]] =
+    sign[F](url, keyPair, nonce, keyId)((header, key) => JsonWebSignature.signString[F](header, payload, key))
+
+  private def sign[F[_]: Sync](url: Uri, keyPair: KeyPair, nonce: Option[Base64UrlNoPad] = None,
+                               keyId: Option[KeyId] = None)
+                              (f: (JoseHeader, Option[PrivateKey]) => F[Either[Error, JsonWebSignature]])
+  : F[Either[Error, JsonWebSignature]] =
     val eitherT =
       for
         jwk <- JsonWebKey.fromPublicKey(keyPair.getPublic).eLiftET[F]
@@ -34,7 +44,7 @@ package object jose:
         header = keyId match
           case Some(keyId) => JoseHeader.withExt(JWSHeaderExt(url, nonce), Some(algorithm), keyID = Some(keyId))
           case _ => JoseHeader.withExt(JWSHeaderExt(url, nonce), Some(algorithm), jwk = Some(jwk))
-        jws <- EitherT(JsonWebSignature.signJson[F, A](header, payload, Some(keyPair.getPrivate)))
+        jws <- EitherT(f(header, Some(keyPair.getPrivate)))
         jws <- jws.excludeHeader.eLiftET[F]
       yield
         jws
