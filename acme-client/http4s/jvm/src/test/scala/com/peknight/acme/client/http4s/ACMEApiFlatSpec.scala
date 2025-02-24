@@ -43,8 +43,14 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 account <- EitherT(acmeClient.newAccount(AccountClaims(termsOfServiceAgreed = Some(true)), userKeyPair))
                 _ <- EitherT(info"account: $account".asError)
                 accountLocation = account.location
-                identifier <- Identifier.dns("www.peknight.com").eLiftET[IO]
-                order <- EitherT(acmeClient.newOrder(OrderClaims(NonEmptyList.one(identifier)), userKeyPair,
+                identifiers <- NonEmptyList.of(
+                  "peknight.com",
+                  "*.peknight.com",
+                  "*.server.peknight.com",
+                  "*.ctrl.peknight.com",
+                  "*.cdn.peknight.com"
+                ).traverse(domain => Identifier.dns(domain).eLiftET[IO])
+                order <- EitherT(acmeClient.newOrder(OrderClaims(identifiers), userKeyPair,
                   accountLocation))
                 orderLocation = order.location
                 _ <- EitherT(info"order: $order".asError)
