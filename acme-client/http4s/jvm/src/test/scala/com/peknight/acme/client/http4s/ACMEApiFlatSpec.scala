@@ -3,7 +3,9 @@ package com.peknight.acme.client.http4s
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.IO
 import cats.effect.testing.scalatest.AsyncIOSpec
+import cats.syntax.traverse.*
 import com.peknight.acme.account.AccountClaims
+import com.peknight.acme.client.letsencrypt.challenge.Challenge
 import com.peknight.acme.client.letsencrypt.uri
 import com.peknight.acme.client.letsencrypt.uri.stagingDirectory
 import com.peknight.acme.identifier.Identifier
@@ -40,11 +42,23 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 userKeyPair <- EitherT(secp256r1.generateKeyPair[IO](provider = Some(provider)).asError)
                 account <- EitherT(acmeClient.newAccount(AccountClaims(termsOfServiceAgreed = Some(true)), userKeyPair))
                 _ <- EitherT(info"account: $account".asError)
+                accountLocation = account.location
                 identifier <- Identifier.dns("www.peknight.com").eLiftET[IO]
                 order <- EitherT(acmeClient.newOrder(OrderClaims(NonEmptyList.one(identifier)), userKeyPair,
-                  account.location))
+                  accountLocation))
+                orderLocation = order.location
                 _ <- EitherT(info"order: $order".asError)
+                authorizations <- order.body.authorizations.traverse(authorizationUri =>
+                  EitherT(acmeClient.authorization[Challenge](authorizationUri, userKeyPair, accountLocation))
+                )
+                _ <- EitherT(info"authorizations: $authorizations".asError)
                 domainKeyPair <- EitherT(RSA.keySizeGenerateKeyPair[IO](4096).asError)
+
+                _ <- EitherT(IO.sleep(10.seconds).asError)
+                account <- EitherT(acmeClient.account(userKeyPair, accountLocation))
+                _ <- EitherT(info"account: $account".asError)
+                order <- EitherT(acmeClient.order(orderLocation, userKeyPair, accountLocation))
+                _ <- EitherT(info"order: $order".asError)
               yield
                 account
             eitherT.value

@@ -1,4 +1,4 @@
-package com.peknight.acme
+package com.peknight.acme.validation
 
 import cats.Applicative
 import com.peknight.codec.Codec

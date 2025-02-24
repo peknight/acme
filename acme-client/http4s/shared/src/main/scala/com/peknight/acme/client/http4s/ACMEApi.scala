@@ -10,6 +10,7 @@ import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.order.*
 import com.peknight.acme.account.{NewAccountHttpResponse, NewAccountResponse}
+import com.peknight.acme.authorization.Authorization
 import com.peknight.acme.client.api
 import com.peknight.acme.client.headers.{baseHeaders, getHeaders, postHeaders}
 import com.peknight.acme.directory.Directory
@@ -68,8 +69,18 @@ class ACMEApi[F[_]: Async](
       NewAccountHttpResponse.apply
     )
 
+  def account(jws: JsonWebSignature, uri: Uri): F[Either[Error, NewAccountResponse]] =
+    postJws[NewAccountResponse](jws, uri).map(_.map(_.body))
+
   def newOrder(jws: JsonWebSignature, uri: Uri): F[Either[Error, NewOrderHttpResponse]] =
     postJwsWithLocation[Order, NewOrderHttpResponse](jws, uri, "orderLocation")(NewOrderHttpResponse.apply)
+
+  def order(jws: JsonWebSignature, uri: Uri): F[Either[Error, Order]] =
+    postJws[Order](jws, uri).map(_.map(_.body))
+
+  def authorization[Challenge](jws: JsonWebSignature, uri: Uri)(using Decoder[Id, Cursor[Json], Challenge])
+  : F[Either[Error, Authorization[Challenge]]] =
+    postJws[Authorization[Challenge]](jws, uri).map(_.map(_.body))
 
   private def get[A](uri: Uri, cacheRef: Ref[F, Option[HttpResponse[A]]], label: String)
                     (using Decoder[Id, Cursor[Json], A])

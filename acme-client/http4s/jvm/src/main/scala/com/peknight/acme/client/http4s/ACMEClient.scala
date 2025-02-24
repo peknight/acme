@@ -1,26 +1,32 @@
 package com.peknight.acme.client.http4s
 
+import cats.Id
 import cats.data.EitherT
 import cats.effect.{Async, Ref, Sync}
 import cats.syntax.eq.*
 import cats.syntax.flatMap.*
 import cats.syntax.functor.*
 import cats.syntax.option.*
-import com.peknight.acme.account.{AccountClaims, NewAccountHttpResponse}
+import com.peknight.acme.account.{AccountClaims, NewAccountHttpResponse, NewAccountResponse}
+import com.peknight.acme.authorization.Authorization
 import com.peknight.acme.client.api
 import com.peknight.acme.client.error.*
-import com.peknight.acme.client.jose.signJson
+import com.peknight.acme.client.jose.{signEmptyString, signJson}
 import com.peknight.acme.directory.Directory
 import com.peknight.acme.identifier.IdentifierType.dns
-import com.peknight.acme.order.{NewOrderHttpResponse, OrderClaims}
+import com.peknight.acme.order.{NewOrderHttpResponse, Order, OrderClaims}
 import com.peknight.cats.effect.ext.Clock
 import com.peknight.cats.ext.syntax.eitherT.{lLiftET, rLiftET}
+import com.peknight.codec.Decoder
 import com.peknight.codec.base.Base64UrlNoPad
+import com.peknight.codec.cursor.Cursor
 import com.peknight.commons.time.syntax.temporal.plus
 import com.peknight.error.Error
 import com.peknight.error.syntax.applicativeError.asError
 import com.peknight.http.HttpResponse
 import com.peknight.jose.jwk.KeyId
+import com.peknight.jose.jws.JsonWebSignature
+import io.circe.Json
 import org.http4s.Uri
 import org.http4s.client.Client
 import org.http4s.client.dsl.Http4sClientDsl
@@ -77,6 +83,9 @@ class ACMEClient[F[_]: Sync](
         response
     eitherT.value
 
+  def account(keyPair: KeyPair, accountLocation: Uri): F[Either[Error, NewAccountResponse]] =
+    postAsGet[NewAccountResponse](accountLocation, keyPair, accountLocation)(acmeApi.account)
+
   def newOrder(claims: OrderClaims, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, NewOrderHttpResponse]] =
     val eitherT =
       for
@@ -106,6 +115,24 @@ class ACMEClient[F[_]: Sync](
         jws <- EitherT(signJson[F, OrderClaims](directory.newOrder, claims, keyPair, Some(nonce),
           Some(KeyId(accountLocation.toString))))
         response <- EitherT(acmeApi.newOrder(jws, directory.newOrder))
+      yield
+        response
+    eitherT.value
+
+  def order(orderLocation: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Order]] =
+    postAsGet[Order](orderLocation, keyPair, accountLocation)(acmeApi.order)
+
+  def authorization[Challenge](authorizationUri: Uri, keyPair: KeyPair, accountLocation: Uri)
+                              (using Decoder[Id, Cursor[Json], Challenge]): F[Either[Error, Authorization[Challenge]]] =
+    postAsGet[Authorization[Challenge]](authorizationUri, keyPair, accountLocation)(acmeApi.authorization[Challenge])
+
+  private def postAsGet[A](uri: Uri, keyPair: KeyPair, accountLocation: Uri)
+                          (f: (JsonWebSignature, Uri) => F[Either[Error, A]]): F[Either[Error, A]] =
+    val eitherT =
+      for
+        nonce <- EitherT(nonce)
+        jws <- EitherT(signEmptyString[F](uri, keyPair, Some(nonce), Some(KeyId(accountLocation.toString))))
+        response <- EitherT(f(jws, uri))
       yield
         response
     eitherT.value

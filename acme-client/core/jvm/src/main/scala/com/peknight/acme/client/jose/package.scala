@@ -29,9 +29,9 @@ package object jose:
                        (using Sync[F], Encoder[Id, Json, A]): F[Either[Error, JsonWebSignature]] =
     sign[F](url, keyPair, nonce, keyId)((header, key) => JsonWebSignature.signJson[F, A](header, payload, key))
 
-  def signString[F[_]: Sync](url: Uri, payload: String, keyPair: KeyPair, nonce: Option[Base64UrlNoPad] = None,
-                             keyId: Option[KeyId] = None): F[Either[Error, JsonWebSignature]] =
-    sign[F](url, keyPair, nonce, keyId)((header, key) => JsonWebSignature.signString[F](header, payload, key))
+  def signEmptyString[F[_]: Sync](url: Uri, keyPair: KeyPair, nonce: Option[Base64UrlNoPad] = None,
+                                  keyId: Option[KeyId] = None): F[Either[Error, JsonWebSignature]] =
+    sign[F](url, keyPair, nonce, keyId)((header, key) => JsonWebSignature.signString[F](header, "", key))
 
   private def sign[F[_]: Sync](url: Uri, keyPair: KeyPair, nonce: Option[Base64UrlNoPad] = None,
                                keyId: Option[KeyId] = None)
