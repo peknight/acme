@@ -35,13 +35,14 @@ import java.security.KeyPair
 import java.util.Locale
 import scala.concurrent.duration.*
 
-class ACMEClient[F[_]: Sync](
-                              directoryUri: Uri,
-                              directoryMaxAge: FiniteDuration,
-                              acmeApi: api.ACMEApi[F],
-                              nonceRef: Ref[F, Option[Base64UrlNoPad]],
-                              directoryRef: Ref[F, Option[HttpResponse[Directory]]]
-                            ) extends api.ACMEClient[F]:
+class ACMEClient[F[_], Challenge](
+                                   directoryUri: Uri,
+                                   directoryMaxAge: FiniteDuration,
+                                   acmeApi: api.ACMEApi[F],
+                                   nonceRef: Ref[F, Option[Base64UrlNoPad]],
+                                   directoryRef: Ref[F, Option[HttpResponse[Directory]]]
+                                 )(using Sync[F], Decoder[Id, Cursor[Json], Challenge])
+  extends api.ACMEClient[F, Challenge]:
   def directory: F[Either[Error, Directory]] =
     val eitherT =
       for
@@ -122,8 +123,8 @@ class ACMEClient[F[_]: Sync](
   def order(orderLocation: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Order]] =
     postAsGet[Order](orderLocation, keyPair, accountLocation)(acmeApi.order)
 
-  def authorization[Challenge](authorizationUri: Uri, keyPair: KeyPair, accountLocation: Uri)
-                              (using Decoder[Id, Cursor[Json], Challenge]): F[Either[Error, Authorization[Challenge]]] =
+  def authorization(authorizationUri: Uri, keyPair: KeyPair, accountLocation: Uri)
+  : F[Either[Error, Authorization[Challenge]]] =
     postAsGet[Authorization[Challenge]](authorizationUri, keyPair, accountLocation)(acmeApi.authorization[Challenge])
 
   private def postAsGet[A](uri: Uri, keyPair: KeyPair, accountLocation: Uri)
@@ -138,13 +139,15 @@ class ACMEClient[F[_]: Sync](
     eitherT.value
 end ACMEClient
 object ACMEClient:
-  def apply[F[_]: Async](client: Client[F], directoryUri: Uri, directoryMaxAge: FiniteDuration = 10.minutes)
-                        (dsl: Http4sClientDsl[F]): F[api.ACMEClient[F]] =
+  def apply[F[_], Challenge](client: Client[F], directoryUri: Uri, directoryMaxAge: FiniteDuration = 10.minutes)
+                            (dsl: Http4sClientDsl[F])
+                            (using Async[F], Decoder[Id, Cursor[Json], Challenge])
+  : F[api.ACMEClient[F, Challenge]] =
     for
       locale <- Sync[F].blocking(Locale.getDefault)
       nonceRef <- Ref[F].of(none[Base64UrlNoPad])
       directoryRef <- Ref[F].of(none[HttpResponse[Directory]])
       acmeApi = ACMEApi[F](locale, true, nonceRef, directoryRef)(client)(dsl)
     yield
-      new ACMEClient[F](directoryUri, directoryMaxAge, acmeApi, nonceRef, directoryRef)
+      new ACMEClient[F, Challenge](directoryUri, directoryMaxAge, acmeApi, nonceRef, directoryRef)
 end ACMEClient

@@ -38,7 +38,7 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
           .use { client =>
             val eitherT =
               for
-                acmeClient <- EitherT(ACMEClient[IO](client, stagingDirectory)(dsl.io).asError)
+                acmeClient <- EitherT(ACMEClient[IO, Challenge](client, stagingDirectory)(dsl.io).asError)
                 userKeyPair <- EitherT(secp256r1.generateKeyPair[IO](provider = Some(provider)).asError)
                 account <- EitherT(acmeClient.newAccount(AccountClaims(termsOfServiceAgreed = Some(true)), userKeyPair))
                 _ <- EitherT(info"account: $account".asError)
@@ -55,7 +55,7 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 orderLocation = order.location
                 _ <- EitherT(info"order: $order".asError)
                 authorizations <- order.body.authorizations.traverse(authorizationUri =>
-                  EitherT(acmeClient.authorization[Challenge](authorizationUri, userKeyPair, accountLocation))
+                  EitherT(acmeClient.authorization(authorizationUri, userKeyPair, accountLocation))
                 )
                 _ <- EitherT(info"authorizations: $authorizations".asError)
                 domainKeyPair <- EitherT(RSA.keySizeGenerateKeyPair[IO](4096).asError)
