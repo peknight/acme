@@ -12,7 +12,7 @@ import cats.{Id, Show}
 import com.peknight.acme.account.{AccountClaims, NewAccountHttpResponse, NewAccountResponse}
 import com.peknight.acme.authorization.{Authorization, AuthorizationStatus}
 import com.peknight.acme.challenge.Challenge.`dns-01`
-import com.peknight.acme.challenge.ChallengeStatus
+import com.peknight.acme.challenge.{ChallengeClaims, ChallengeStatus}
 import com.peknight.acme.client.api
 import com.peknight.acme.client.api.DNSChallengeClient
 import com.peknight.acme.client.error.*
@@ -24,9 +24,9 @@ import com.peknight.acme.identifier.IdentifierType.dns
 import com.peknight.acme.order.{NewOrderHttpResponse, Order, OrderClaims}
 import com.peknight.cats.effect.ext.Clock
 import com.peknight.cats.ext.syntax.eitherT.{eLiftET, lLiftET, rLiftET}
-import com.peknight.codec.Decoder
 import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.codec.cursor.Cursor
+import com.peknight.codec.{Decoder, Encoder}
 import com.peknight.commons.time.syntax.temporal.plus
 import com.peknight.error.Error
 import com.peknight.error.collection.CollectionEmpty
@@ -88,9 +88,9 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
     val eitherT =
       for
         directory <- EitherT(directory)
-        nonce <- EitherT(nonce)
-        jws <- EitherT(signJson[F, AccountClaims](directory.newAccount, claims, keyPair, Some(nonce)))
-        response <- EitherT(acmeApi.newAccount(jws, directory.newAccount))
+        response <- EitherT(postAsGet[AccountClaims, NewAccountHttpResponse](directory.newAccount, claims, keyPair)(
+          acmeApi.newAccount
+        ))
       yield
         response
     eitherT.value
@@ -141,6 +141,11 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
   def challenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Challenge]] =
     postAsGet[Challenge](challengeUri, keyPair, accountLocation)(acmeApi.challenge[Challenge])
 
+  def respondToChallenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Challenge]] =
+    postAsGet[ChallengeClaims, Challenge](challengeUri, ChallengeClaims(), keyPair, Some(accountLocation))(
+      acmeApi.challenge[Challenge]
+    )
+
   def challenge[I <: Identifier, C <: Challenge, A](authorization: Authorization[Challenge])
                                                    (ci: => Either[Error, (I, C)])
                                                    (f: (I, C) => F[Either[Error, Option[A]]])
@@ -175,6 +180,20 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
                                   (using dnsChallengeClient: DNSChallengeClient[F, DNSRecordId])
   : F[Either[Error, List[DNSRecordId]]] =
     dnsChallengeClient.cleanDNSRecord(identifier, challenge, dnsRecordId)
+
+  private def postAsGet[A, B](uri: Uri, payload: A, keyPair: KeyPair, accountLocation: Option[Uri] = None)
+                             (f: (JsonWebSignature, Uri) => F[Either[Error, B]])
+                             (using Encoder[Id, Json, A])
+  : F[Either[Error, B]] =
+    val eitherT =
+      for
+        nonce <- EitherT(nonce)
+        jws <- EitherT(signJson[F, A](uri, payload, keyPair, Some(nonce),
+          accountLocation.map(location => KeyId(location.toString))))
+        response <- EitherT(f(jws, uri))
+      yield
+        response
+    eitherT.value
 
   private def postAsGet[A](uri: Uri, keyPair: KeyPair, accountLocation: Uri)
                           (f: (JsonWebSignature, Uri) => F[Either[Error, A]]): F[Either[Error, A]] =

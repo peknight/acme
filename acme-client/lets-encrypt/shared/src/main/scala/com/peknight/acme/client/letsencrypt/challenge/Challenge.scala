@@ -3,6 +3,7 @@ package com.peknight.acme.client.letsencrypt.challenge
 import cats.Monad
 import cats.syntax.functor.*
 import com.peknight.acme.challenge.ChallengeStatus
+import com.peknight.acme.error.ACMEError
 import com.peknight.acme.identifier.Identifier
 import com.peknight.acme.identifier.Identifier.DNS
 import com.peknight.acme.validation.ValidationMethod
@@ -23,38 +24,40 @@ import java.time.Instant
 sealed trait Challenge extends com.peknight.acme.challenge.Challenge with Ext:
   def token: Base64UrlNoPad
   def validated: Option[Instant]
+  def error: Option[ACMEError]
 end Challenge
 object Challenge:
 
   case class `http-01`(url: Uri, status: ChallengeStatus, token: Base64UrlNoPad, validated: Option[Instant] = None,
-                       ext: JsonObject = JsonObject.empty)
+                       error: Option[ACMEError] = None, ext: JsonObject = JsonObject.empty)
     extends Challenge with com.peknight.acme.challenge.Challenge.`http-01` with HTTP01Platform:
     def name: String = token.value
     def url(identifier: DNS): Uri = Uri.unsafeFromString(s"http://${identifier.value}/.well-known/acme-challenge/$name")
   end `http-01`
   case class `dns-01`(url: Uri, status: ChallengeStatus, token: Base64UrlNoPad, validated: Option[Instant] = None,
-                       ext: JsonObject = JsonObject.empty)
+                      error: Option[ACMEError] = None, ext: JsonObject = JsonObject.empty)
     extends Challenge with com.peknight.acme.challenge.Challenge.`dns-01` with DNS01Platform:
     private def toRRName(domain: String): String = s"_acme-challenge.$domain."
     def name(identifier: DNS): String = toRRName(identifier.value)
   end `dns-01`
   case class `tls-sni-01`(url: Uri, status: ChallengeStatus, token: Base64UrlNoPad, validated: Option[Instant] = None,
-                       ext: JsonObject = JsonObject.empty)
+                          error: Option[ACMEError] = None, ext: JsonObject = JsonObject.empty)
     extends Challenge with com.peknight.acme.challenge.Challenge.`tls-sni-01`
   case class `tls-sni-02`(url: Uri, status: ChallengeStatus, token: Base64UrlNoPad, validated: Option[Instant] = None,
-                          ext: JsonObject = JsonObject.empty)
+                          error: Option[ACMEError] = None, ext: JsonObject = JsonObject.empty)
     extends Challenge with com.peknight.acme.challenge.Challenge.`tls-sni-02`
   case class `tls-alpn-01`(url: Uri, status: ChallengeStatus, token: Base64UrlNoPad, validated: Option[Instant] = None,
-                       ext: JsonObject = JsonObject.empty)
+                           error: Option[ACMEError] = None, ext: JsonObject = JsonObject.empty)
     extends Challenge with com.peknight.acme.challenge.Challenge.`tls-alpn-01`
   case class `email-reply-00`(url: Uri, status: ChallengeStatus, token: Base64UrlNoPad,
-                              validated: Option[Instant] = None, ext: JsonObject = JsonObject.empty)
+                              validated: Option[Instant] = None, error: Option[ACMEError] = None,
+                              ext: JsonObject = JsonObject.empty)
     extends Challenge with com.peknight.acme.challenge.Challenge.`email-reply-00`
   case class `tkauth-01`(url: Uri, status: ChallengeStatus, token: Base64UrlNoPad, validated: Option[Instant] = None,
-                       ext: JsonObject = JsonObject.empty)
+                         error: Option[ACMEError] = None, ext: JsonObject = JsonObject.empty)
     extends Challenge with com.peknight.acme.challenge.Challenge.`tkauth-01`
   case class `onion-csr-01`(url: Uri, status: ChallengeStatus, token: Base64UrlNoPad, validated: Option[Instant] = None,
-                       ext: JsonObject = JsonObject.empty)
+                            error: Option[ACMEError] = None, ext: JsonObject = JsonObject.empty)
     extends Challenge with com.peknight.acme.challenge.Challenge.`onion-csr-01`
 
   private val codecConfiguration: CodecConfiguration =

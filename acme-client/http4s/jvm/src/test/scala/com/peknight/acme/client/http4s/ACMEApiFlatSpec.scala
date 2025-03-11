@@ -5,12 +5,16 @@ import cats.effect.IO
 import cats.effect.testing.scalatest.AsyncIOSpec
 import cats.syntax.traverse.*
 import com.peknight.acme.account.AccountClaims
+import com.peknight.acme.client.cloudflare.DNSChallengeClient
 import com.peknight.acme.client.letsencrypt.challenge.Challenge
 import com.peknight.acme.client.letsencrypt.uri
 import com.peknight.acme.client.letsencrypt.uri.stagingDirectory
+import com.peknight.acme.error.ACMEError
 import com.peknight.acme.identifier.Identifier
 import com.peknight.acme.order.OrderClaims
 import com.peknight.cats.ext.syntax.eitherT.eLiftET
+import com.peknight.cloudflare.dns.record.http4s.DNSRecordApi
+import com.peknight.cloudflare.test.{PekToken, PekZone}
 import com.peknight.error.syntax.applicativeError.asError
 import com.peknight.security.Security
 import com.peknight.security.bouncycastle.jce.provider.BouncyCastleProvider
@@ -39,6 +43,8 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
             val eitherT =
               for
                 acmeClient <- EitherT(ACMEClient[IO, Challenge](client, stagingDirectory)(dsl.io).asError)
+                dnsRecordApi = DNSRecordApi[IO](PekToken.token)(client)(dsl.io)
+                dnsChallengeClient = DNSChallengeClient[IO](dnsRecordApi, PekZone.zoneId)
                 userKeyPair <- EitherT(secp256r1.generateKeyPair[IO](provider = Some(provider)).asError)
                 account <- EitherT(acmeClient.newAccount(AccountClaims(termsOfServiceAgreed = Some(true)), userKeyPair))
                 _ <- EitherT(info"account: $account".asError)
@@ -59,9 +65,10 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 )
                 _ <- EitherT(info"authorizations: $authorizations".asError)
                 challenges <- authorizations.flatMap(_.challenges.toList).traverse(challenge =>
-                  EitherT(acmeClient.challenge(challenge.url, userKeyPair, accountLocation))
+                  EitherT(acmeClient.respondToChallenge(challenge.url, userKeyPair, accountLocation))
                 )
                 _ <- EitherT(info"challenges: $challenges".asError)
+
                 domainKeyPair <- EitherT(RSA.keySizeGenerateKeyPair[IO](4096).asError)
                 _ <- EitherT(IO.sleep(10.seconds).asError)
                 account <- EitherT(acmeClient.account(userKeyPair, accountLocation))
