@@ -21,9 +21,6 @@ import org.http4s.Uri
 import java.time.Instant
 
 sealed trait Challenge extends com.peknight.acme.challenge.Challenge with Ext:
-  def `type`: ValidationMethod
-  def url: Uri
-  def status: ChallengeStatus
   def token: Base64UrlNoPad
   def validated: Option[Instant]
 end Challenge

@@ -1,38 +1,49 @@
 package com.peknight.acme.client.http4s
 
-import cats.Id
 import cats.data.EitherT
 import cats.effect.{Async, Ref, Sync}
+import cats.syntax.applicative.*
+import cats.syntax.either.*
 import cats.syntax.eq.*
 import cats.syntax.flatMap.*
 import cats.syntax.functor.*
 import cats.syntax.option.*
+import cats.{Id, Show}
 import com.peknight.acme.account.{AccountClaims, NewAccountHttpResponse, NewAccountResponse}
-import com.peknight.acme.authorization.Authorization
+import com.peknight.acme.authorization.{Authorization, AuthorizationStatus}
+import com.peknight.acme.challenge.Challenge.`dns-01`
+import com.peknight.acme.challenge.ChallengeStatus
 import com.peknight.acme.client.api
+import com.peknight.acme.client.api.DNSChallengeClient
 import com.peknight.acme.client.error.*
 import com.peknight.acme.client.jose.{signEmptyString, signJson}
 import com.peknight.acme.directory.Directory
+import com.peknight.acme.identifier.Identifier
+import com.peknight.acme.identifier.Identifier.DNS
 import com.peknight.acme.identifier.IdentifierType.dns
 import com.peknight.acme.order.{NewOrderHttpResponse, Order, OrderClaims}
 import com.peknight.cats.effect.ext.Clock
-import com.peknight.cats.ext.syntax.eitherT.{lLiftET, rLiftET}
+import com.peknight.cats.ext.syntax.eitherT.{eLiftET, lLiftET, rLiftET}
 import com.peknight.codec.Decoder
 import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.codec.cursor.Cursor
 import com.peknight.commons.time.syntax.temporal.plus
 import com.peknight.error.Error
+import com.peknight.error.collection.CollectionEmpty
 import com.peknight.error.option.OptionEmpty
 import com.peknight.error.syntax.applicativeError.asError
+import com.peknight.error.syntax.either.label
 import com.peknight.http.HttpResponse
 import com.peknight.jose.jwk.KeyId
 import com.peknight.jose.jws.JsonWebSignature
+import com.peknight.validation.collection.list.either.one
+import com.peknight.validation.std.either.typed
 import io.circe.Json
 import org.http4s.Uri
 import org.http4s.client.Client
 import org.http4s.client.dsl.Http4sClientDsl
 
-import java.security.KeyPair
+import java.security.{KeyPair, PublicKey}
 import java.util.Locale
 import scala.concurrent.duration.*
 
@@ -126,6 +137,41 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
   def authorization(authorizationUri: Uri, keyPair: KeyPair, accountLocation: Uri)
   : F[Either[Error, Authorization[Challenge]]] =
     postAsGet[Authorization[Challenge]](authorizationUri, keyPair, accountLocation)(acmeApi.authorization[Challenge])
+
+  def challenge[I <: Identifier, C <: Challenge, A](authorization: Authorization[Challenge])
+                                                   (ci: => Either[Error, (I, C)])
+                                                   (f: (I, C) => F[Either[Error, Option[A]]])
+  : F[Either[Error, Option[A]]] =
+    if authorization.status === AuthorizationStatus.valid then
+      none[A].asRight[Error].pure[F]
+    else
+      ci match
+        case Right((identifier, challenge)) =>
+          if challenge.status === ChallengeStatus.valid then none[A].asRight[Error].pure[F]
+          else f(identifier, challenge)
+        case Left(error) => error.asLeft[Option[A]].pure[F]
+  end challenge
+
+  def getDnsIdentifierAndChallenge(authorization: Authorization[Challenge]): Either[Error, (DNS, `dns-01`)] =
+    for
+      identifier <- typed[DNS](authorization.identifier).label("identifier")
+      dnsChallenges: List[`dns-01`] = authorization.challenges.collect {
+        case challenge: `dns-01` => challenge
+      }
+      given Show[`dns-01`] = Show.fromToString[`dns-01`]
+      challenge <- one(dnsChallenges).label("dnsChallenges")
+    yield
+      (identifier, challenge)
+
+  def createDNSRecord[DNSRecordId](identifier: DNS, challenge: `dns-01`, publicKey: PublicKey)
+                                  (using dnsChallengeClient: DNSChallengeClient[F, DNSRecordId])
+  : F[Either[Error, Option[DNSRecordId]]] =
+    dnsChallengeClient.createDNSRecord(identifier, challenge, publicKey)
+
+  def cleanDNSRecords[DNSRecordId](identifier: DNS, challenge: `dns-01`, dnsRecordId: Option[DNSRecordId])
+                                  (using dnsChallengeClient: DNSChallengeClient[F, DNSRecordId])
+  : F[Either[Error, List[DNSRecordId]]] =
+    dnsChallengeClient.cleanDNSRecord(identifier, challenge, dnsRecordId)
 
   private def postAsGet[A](uri: Uri, keyPair: KeyPair, accountLocation: Uri)
                           (f: (JsonWebSignature, Uri) => F[Either[Error, A]]): F[Either[Error, A]] =

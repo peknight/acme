@@ -1,6 +1,6 @@
 package com.peknight.acme.authorization
 
-import cats.Applicative
+import cats.{Applicative, Eq}
 import com.peknight.codec.Codec
 import com.peknight.codec.configuration.CodecConfiguration
 import com.peknight.codec.cursor.Cursor
@@ -43,6 +43,7 @@ enum AuthorizationStatus:
   case pending, valid, invalid, deactivated, expired, revoked
 end AuthorizationStatus
 object AuthorizationStatus:
+  given eqAuthorizationStatus: Eq[AuthorizationStatus] = Eq.fromUniversalEquals[AuthorizationStatus]
   given stringCodecAuthorizationStatus[F[_]: Applicative]: Codec[F, String, String, AuthorizationStatus] =
     EnumCodecDerivation.unsafeDerivedStringCodecEnum[F, AuthorizationStatus](using CodecConfiguration.default)
   given codecAuthorizationStatus[F[_]: Applicative, S: StringType]: Codec[F, S, Cursor[S], AuthorizationStatus] =

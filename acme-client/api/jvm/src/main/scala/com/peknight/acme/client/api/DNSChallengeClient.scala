@@ -7,6 +7,7 @@ import com.peknight.error.Error
 import java.security.PublicKey
 
 trait DNSChallengeClient[F[_], DNSRecordId]:
-  def createDNSRecord(challenge: `dns-01`, identifier: DNS, publicKey: PublicKey): F[Either[Error, Option[DNSRecordId]]]
-  def deleteDNSRecord(challenge: `dns-01`, identifier: DNS, dnsRecordId: Option[DNSRecordId] = None): F[Either[Error, List[DNSRecordId]]]
+  def createDNSRecord(identifier: DNS, challenge: `dns-01`, publicKey: PublicKey): F[Either[Error, Option[DNSRecordId]]]
+  def cleanDNSRecord(identifier: DNS, challenge: `dns-01`, dnsRecordId: Option[DNSRecordId] = None)
+  : F[Either[Error, List[DNSRecordId]]]
 end DNSChallengeClient

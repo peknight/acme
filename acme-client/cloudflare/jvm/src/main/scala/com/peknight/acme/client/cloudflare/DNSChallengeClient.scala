@@ -21,25 +21,25 @@ import java.security.PublicKey
 
 class DNSChallengeClient[F[_]: Sync](dnsRecordApi: DNSRecordApi[F], zoneId: ZoneId)
   extends com.peknight.acme.client.api.DNSChallengeClient[F, DNSRecordId]:
-  def createDNSRecord(challenge: `dns-01`, identifier: DNS, publicKey: PublicKey)
+  def createDNSRecord(identifier: DNS, challenge: `dns-01`, publicKey: PublicKey)
   : F[Either[Error, Option[DNSRecordId]]] =
     val eitherT =
       for
         content <- EitherT(challenge.content[F](publicKey))
         name = challenge.name(identifier)
-        _ <- deleteDNSRecords(challenge, identifier)
+        _ <- deleteDNSRecords(identifier, challenge)
         dnsRecord <- EitherT(dnsRecordApi.createDNSRecord(zoneId)(TXT(content, name)).asError)
       yield
         dnsRecord.id.some
     eitherT.value
 
-  def deleteDNSRecord(challenge: `dns-01`, identifier: DNS, dnsRecordId: Option[DNSRecordId] = None)
+  def cleanDNSRecord(identifier: DNS, challenge: `dns-01`, dnsRecordId: Option[DNSRecordId] = None)
   : F[Either[Error, List[DNSRecordId]]] =
     dnsRecordId match
       case Some(id) => dnsRecordApi.deleteDNSRecord(zoneId, id).asError.map(_.map(List(_)))
-      case None => deleteDNSRecords(challenge, identifier).value
+      case None => deleteDNSRecords(identifier, challenge).value
 
-  private def deleteDNSRecords(challenge: `dns-01`, identifier: DNS): EitherT[F, Error, List[DNSRecordId]] =
+  private def deleteDNSRecords(identifier: DNS, challenge: `dns-01`): EitherT[F, Error, List[DNSRecordId]] =
     for
       dnsRecords <- EitherT(dnsRecordApi.listDNSRecords(zoneId)(
         ListDNSRecordsQuery(name = challenge.name(identifier).some)

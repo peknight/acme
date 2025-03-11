@@ -7,6 +7,8 @@ import org.http4s.Uri
 
 trait Challenge:
   def `type`: ValidationMethod
+  def url: Uri
+  def status: ChallengeStatus
 end Challenge
 object Challenge:
   trait `http-01` extends Challenge with HTTP01Platform:

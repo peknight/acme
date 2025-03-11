@@ -1,6 +1,6 @@
 package com.peknight.acme.challenge
 
-import cats.Applicative
+import cats.{Applicative, Eq}
 import com.peknight.codec.Codec
 import com.peknight.codec.configuration.CodecConfiguration
 import com.peknight.codec.cursor.Cursor
@@ -40,6 +40,7 @@ enum ChallengeStatus:
   case pending, processing, valid, invalid
 end ChallengeStatus
 object ChallengeStatus:
+  given eqChallengeStatus: Eq[ChallengeStatus] = Eq.fromUniversalEquals[ChallengeStatus]
   given stringCodecChallengeStatus[F[_]: Applicative]: Codec[F, String, String, ChallengeStatus] =
     EnumCodecDerivation.unsafeDerivedStringCodecEnum[F, ChallengeStatus](using CodecConfiguration.default)
   given codecChallengeStatus[F[_]: Applicative, S: StringType]: Codec[F, S, Cursor[S], ChallengeStatus] =
