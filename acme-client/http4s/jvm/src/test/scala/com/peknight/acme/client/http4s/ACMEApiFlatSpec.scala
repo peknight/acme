@@ -58,8 +58,8 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                   EitherT(acmeClient.authorization(authorizationUri, userKeyPair, accountLocation))
                 )
                 _ <- EitherT(info"authorizations: $authorizations".asError)
-                domainKeyPair <- EitherT(RSA.keySizeGenerateKeyPair[IO](4096).asError)
 
+                domainKeyPair <- EitherT(RSA.keySizeGenerateKeyPair[IO](4096).asError)
                 _ <- EitherT(IO.sleep(10.seconds).asError)
                 account <- EitherT(acmeClient.account(userKeyPair, accountLocation))
                 _ <- EitherT(info"account: $account".asError)

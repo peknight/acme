@@ -50,6 +50,8 @@ lazy val acmeClient = (project in file("acme-client"))
     acmeClientHttp4s.js,
     acmeClientLetsEncrypt.jvm,
     acmeClientLetsEncrypt.js,
+    acmeClientCloudflare.jvm,
+    acmeClientCloudflare.js,
   )
   .settings(commonSettings)
   .settings(
@@ -79,6 +81,7 @@ lazy val acmeClientHttp4s = (crossProject(JSPlatform, JVMPlatform) in file("acme
   .dependsOn(
     acmeClientApi,
     acmeClientLetsEncrypt % Test,
+    acmeClientCloudflare % Test,
   )
   .settings(commonSettings)
   .settings(
@@ -87,6 +90,7 @@ lazy val acmeClientHttp4s = (crossProject(JSPlatform, JVMPlatform) in file("acme
       "org.http4s" %%% "http4s-client" % http4sVersion,
       "com.peknight" %%% "codec-http4s-circe" % pekCodecVersion,
       "com.peknight" %%% "security-bcprov" % pekSecurityVersion % Test,
+      "com.peknight.cloudflare" %%% "dns-record-http4s" % pekCloudflareVersion % Test,
       "org.http4s" %%% "http4s-ember-client" % http4sVersion % Test,
       "org.scalatest" %%% "scalatest-flatspec" % scalaTestVersion % Test,
       "org.typelevel" %%% "cats-effect-testing-scalatest" % catsEffectTestingScalaTestVersion % Test,
@@ -101,11 +105,21 @@ lazy val acmeClientHttp4s = (crossProject(JSPlatform, JVMPlatform) in file("acme
   )
 
 lazy val acmeClientLetsEncrypt = (crossProject(JSPlatform, JVMPlatform) in file("acme-client/lets-encrypt"))
-  .dependsOn(acmeClientCore)
+  .dependsOn(acmeCore)
   .settings(commonSettings)
   .settings(
     name := "acme-client-lets-encrypt",
     libraryDependencies ++= Seq(
+    ),
+  )
+
+lazy val acmeClientCloudflare = (crossProject(JSPlatform, JVMPlatform) in file("acme-client/cloudflare"))
+  .dependsOn(acmeClientApi)
+  .settings(commonSettings)
+  .settings(
+    name := "acme-client-cloudflare",
+    libraryDependencies ++= Seq(
+      "com.peknight.cloudflare" %%% "dns-record-api" % pekCloudflareVersion,
     ),
   )
 
@@ -119,6 +133,7 @@ val pekCodecVersion = pekVersion
 val pekHttpVersion = pekVersion
 val pekSecurityVersion = pekVersion
 val pekJoseVersion = pekVersion
+val pekCloudflareVersion = pekVersion
 val pekExtVersion = pekVersion
 val pekErrorVersion = pekVersion
 val pekLoggingVersion = pekVersion

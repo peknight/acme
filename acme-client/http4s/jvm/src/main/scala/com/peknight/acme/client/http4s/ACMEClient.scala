@@ -22,6 +22,7 @@ import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.codec.cursor.Cursor
 import com.peknight.commons.time.syntax.temporal.plus
 import com.peknight.error.Error
+import com.peknight.error.option.OptionEmpty
 import com.peknight.error.syntax.applicativeError.asError
 import com.peknight.http.HttpResponse
 import com.peknight.jose.jwk.KeyId
@@ -35,14 +36,13 @@ import java.security.KeyPair
 import java.util.Locale
 import scala.concurrent.duration.*
 
-class ACMEClient[F[_], Challenge](
-                                   directoryUri: Uri,
-                                   directoryMaxAge: FiniteDuration,
-                                   acmeApi: api.ACMEApi[F],
-                                   nonceRef: Ref[F, Option[Base64UrlNoPad]],
-                                   directoryRef: Ref[F, Option[HttpResponse[Directory]]]
-                                 )(using Sync[F], Decoder[Id, Cursor[Json], Challenge])
-  extends api.ACMEClient[F, Challenge]:
+class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
+  directoryUri: Uri,
+  directoryMaxAge: FiniteDuration,
+  acmeApi: api.ACMEApi[F],
+  nonceRef: Ref[F, Option[Base64UrlNoPad]],
+  directoryRef: Ref[F, Option[HttpResponse[Directory]]]
+)(using Sync[F], Decoder[Id, Cursor[Json], Challenge]) extends api.ACMEClient[F, Challenge]:
   def directory: F[Either[Error, Directory]] =
     val eitherT =
       for
@@ -139,9 +139,10 @@ class ACMEClient[F[_], Challenge](
     eitherT.value
 end ACMEClient
 object ACMEClient:
-  def apply[F[_], Challenge](client: Client[F], directoryUri: Uri, directoryMaxAge: FiniteDuration = 10.minutes)
-                            (dsl: Http4sClientDsl[F])
-                            (using Async[F], Decoder[Id, Cursor[Json], Challenge])
+  def apply[F[_], Challenge <: com.peknight.acme.challenge.Challenge](client: Client[F], directoryUri: Uri,
+                                                                      directoryMaxAge: FiniteDuration = 10.minutes)
+                                                                     (dsl: Http4sClientDsl[F])
+                                                                     (using Async[F], Decoder[Id, Cursor[Json], Challenge])
   : F[api.ACMEClient[F, Challenge]] =
     for
       locale <- Sync[F].blocking(Locale.getDefault)

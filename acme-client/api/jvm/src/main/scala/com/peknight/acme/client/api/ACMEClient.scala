@@ -10,7 +10,7 @@ import org.http4s.Uri
 
 import java.security.KeyPair
 
-trait ACMEClient[F[_], Challenge]:
+trait ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge]:
   def directory: F[Either[Error, Directory]]
   def nonce: F[Either[Error, Base64UrlNoPad]]
   def newAccount(claims: AccountClaims, keyPair: KeyPair): F[Either[Error, NewAccountHttpResponse]]
