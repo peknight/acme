@@ -3,18 +3,23 @@ package com.peknight.acme.client.http4s
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.IO
 import cats.effect.testing.scalatest.AsyncIOSpec
+import cats.syntax.option.*
 import cats.syntax.traverse.*
 import com.peknight.acme.account.AccountClaims
+import com.peknight.acme.challenge.Challenge.`dns-01`
 import com.peknight.acme.client.cloudflare.DNSChallengeClient
 import com.peknight.acme.client.letsencrypt.challenge.Challenge
 import com.peknight.acme.client.letsencrypt.uri
 import com.peknight.acme.client.letsencrypt.uri.stagingDirectory
 import com.peknight.acme.error.ACMEError
 import com.peknight.acme.identifier.Identifier
+import com.peknight.acme.identifier.Identifier.DNS
 import com.peknight.acme.order.OrderClaims
-import com.peknight.cats.ext.syntax.eitherT.eLiftET
+import com.peknight.cats.ext.syntax.eitherT.{eLiftET, rLiftET}
+import com.peknight.cloudflare.dns.record.DNSRecordId
 import com.peknight.cloudflare.dns.record.http4s.DNSRecordApi
 import com.peknight.cloudflare.test.{PekToken, PekZone}
+import com.peknight.error.Error
 import com.peknight.error.syntax.applicativeError.asError
 import com.peknight.security.Security
 import com.peknight.security.bouncycastle.jce.provider.BouncyCastleProvider
@@ -60,15 +65,21 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                   accountLocation))
                 orderLocation = order.location
                 _ <- EitherT(info"order: $order".asError)
-                authorizations <- order.body.authorizations.traverse(authorizationUri =>
-                  EitherT(acmeClient.authorization(authorizationUri, userKeyPair, accountLocation))
-                )
-                _ <- EitherT(info"authorizations: $authorizations".asError)
-                challenges <- authorizations.flatMap(_.challenges.toList).traverse(challenge =>
-                  EitherT(acmeClient.respondToChallenge(challenge.url, userKeyPair, accountLocation))
-                )
-                _ <- EitherT(info"challenges: $challenges".asError)
-
+                authorizations <- order.body.authorizations.traverse { authorizationUri =>
+                  for
+                    authorization <- EitherT(acmeClient.authorization(authorizationUri, userKeyPair, accountLocation))
+                    _ <- EitherT(info"authorization: $authorization".asError)
+                    opt <- EitherT(acmeClient.challenge[DNS, `dns-01`, DNSRecordId](authorization)(
+                      acmeClient.getDnsIdentifierAndChallenge(authorization)
+                    )(dnsChallengeClient.createDNSRecord(_, _, userKeyPair.getPublic)))
+                    challenge <- opt match
+                      case Some((identifier, challenge, dnsRecordId)) =>
+                        EitherT(acmeClient.respondToChallenge(challenge.url, userKeyPair, accountLocation)).map(_.some)
+                      case None => none[Challenge].rLiftET[IO, Error]
+                    _ <- EitherT(info"challenge: $challenge".asError)
+                  yield
+                    authorization
+                }
                 domainKeyPair <- EitherT(RSA.keySizeGenerateKeyPair[IO](4096).asError)
                 _ <- EitherT(IO.sleep(10.seconds).asError)
                 account <- EitherT(acmeClient.account(userKeyPair, accountLocation))

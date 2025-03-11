@@ -24,10 +24,10 @@ trait ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge]:
   : F[Either[Error, Authorization[Challenge]]]
   def challenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Challenge]]
   def respondToChallenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Challenge]]
-  def challenge[I <: Identifier, C <: Challenge, A](authorization: Authorization[Challenge])
-                                                   (ci: => Either[Error, (I, C)])
-                                                   (f: (I, C) => F[Either[Error, Option[A]]])
-  : F[Either[Error, Option[A]]]
+  def challenge[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, A](authorization: Authorization[Challenge])
+                                                                               (ci: => Either[Error, (I, C)])
+                                                                               (f: (I, C) => F[Either[Error, Option[A]]])
+  : F[Either[Error, Option[(I, C, Option[A])]]]
   def getDnsIdentifierAndChallenge(authorization: Authorization[Challenge]): Either[Error, (DNS, `dns-01`)]
   def createDNSRecord[DNSRecordId](identifier: DNS, challenge: `dns-01`, publicKey: PublicKey)
                                   (using dnsChallengeClient: DNSChallengeClient[F, DNSRecordId])

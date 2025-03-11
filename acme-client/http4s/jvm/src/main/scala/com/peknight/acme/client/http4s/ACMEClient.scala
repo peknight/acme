@@ -146,18 +146,18 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
       acmeApi.challenge[Challenge]
     )
 
-  def challenge[I <: Identifier, C <: Challenge, A](authorization: Authorization[Challenge])
-                                                   (ci: => Either[Error, (I, C)])
-                                                   (f: (I, C) => F[Either[Error, Option[A]]])
-  : F[Either[Error, Option[A]]] =
+  def challenge[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, A](authorization: Authorization[Challenge])
+                                                                               (ci: => Either[Error, (I, C)])
+                                                                               (f: (I, C) => F[Either[Error, Option[A]]])
+  : F[Either[Error, Option[(I, C, Option[A])]]] =
     if authorization.status === AuthorizationStatus.valid then
-      none[A].asRight[Error].pure[F]
+      none[(I, C, Option[A])].asRight[Error].pure[F]
     else
       ci match
         case Right((identifier, challenge)) =>
-          if challenge.status === ChallengeStatus.valid then none[A].asRight[Error].pure[F]
-          else f(identifier, challenge)
-        case Left(error) => error.asLeft[Option[A]].pure[F]
+          if challenge.status === ChallengeStatus.valid then none[(I, C, Option[A])].asRight[Error].pure[F]
+          else f(identifier, challenge).map(_.map((identifier, challenge, _).some))
+        case Left(error) => error.asLeft[Option[(I, C, Option[A])]].pure[F]
   end challenge
 
   def getDnsIdentifierAndChallenge(authorization: Authorization[Challenge]): Either[Error, (DNS, `dns-01`)] =
