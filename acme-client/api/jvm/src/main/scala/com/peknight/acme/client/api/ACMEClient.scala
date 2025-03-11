@@ -22,6 +22,7 @@ trait ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge]:
   def order(orderLocation: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Order]]
   def authorization(authorizationUri: Uri, keyPair: KeyPair, accountLocation: Uri)
   : F[Either[Error, Authorization[Challenge]]]
+  def challenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Challenge]]
   def challenge[I <: Identifier, C <: Challenge, A](authorization: Authorization[Challenge])
                                                    (ci: => Either[Error, (I, C)])
                                                    (f: (I, C) => F[Either[Error, Option[A]]])

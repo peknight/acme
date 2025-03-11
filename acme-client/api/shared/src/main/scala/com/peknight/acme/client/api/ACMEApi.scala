@@ -22,4 +22,6 @@ trait ACMEApi[F[_]]:
   def order(jws: JsonWebSignature, uri: Uri): F[Either[Error, Order]]
   def authorization[Challenge](jws: JsonWebSignature, uri: Uri)(using Decoder[Id, Cursor[Json], Challenge])
   : F[Either[Error, Authorization[Challenge]]]
+  def challenge[Challenge](jws: JsonWebSignature, uri: Uri)(using Decoder[Id, Cursor[Json], Challenge])
+  : F[Either[Error, Challenge]]
 end ACMEApi
