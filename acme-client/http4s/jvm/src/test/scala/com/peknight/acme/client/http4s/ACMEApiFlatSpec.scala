@@ -74,9 +74,15 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                     _ <- EitherT(IO.sleep(10.seconds).asError)
                     challenge <- opt match
                       case Some((identifier, challenge, dnsRecordId)) =>
-                        EitherT(acmeClient.respondToChallenge(challenge.url, userKeyPair, accountLocation)).map(_.some)
+                        for
+                          c <- EitherT(acmeClient.respondToChallenge(challenge.url, userKeyPair, accountLocation)).map(_.some)
+                          _ <- EitherT(info"challenge: $c".asError)
+                          _ <- EitherT(IO.sleep(10.seconds).asError)
+                          c <- EitherT(acmeClient.challenge(challenge.url, userKeyPair, accountLocation)).map(_.some)
+                          _ <- EitherT(info"challenge: $c".asError)
+                        yield
+                          c
                       case None => none[Challenge].rLiftET[IO, Error]
-                    _ <- EitherT(info"challenge: $challenge".asError)
                   yield
                     authorization
                 }
