@@ -3,6 +3,7 @@ package com.peknight.acme.client.http4s
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.IO
 import cats.effect.testing.scalatest.AsyncIOSpec
+import cats.syntax.parallel.*
 import cats.syntax.option.*
 import cats.syntax.traverse.*
 import com.peknight.acme.account.AccountClaims
@@ -64,7 +65,7 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                   accountLocation))
                 orderLocation = order.location
                 _ <- EitherT(info"order: $order".asError)
-                authorizations <- order.body.authorizations.traverse { authorizationUri =>
+                authorizations <- order.body.authorizations.parTraverse { authorizationUri =>
                   for
                     authorization <- EitherT(acmeClient.authorization(authorizationUri, userKeyPair, accountLocation))
                     _ <- EitherT(info"authorization: $authorization".asError)

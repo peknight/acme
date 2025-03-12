@@ -62,11 +62,12 @@ class DNSChallengeClient[F[_]: {Sync, Logger}](dnsRecordApi: DNSRecordApi[F], zo
       dnsRecords
 end DNSChallengeClient
 object DNSChallengeClient:
-  def apply[F[_]](zoneId: ZoneId)(using dnsRecordApi: DNSRecordApi[F]): F[api.DNSChallengeClient[F, DNSRecordId]] =
+  def apply[F[_]](zoneId: ZoneId)(using dnsRecordApi: DNSRecordApi[F], sync: Sync[F])
+  : F[api.DNSChallengeClient[F, DNSRecordId]] =
     for
       logger <- Slf4jLogger.fromClass[F](DNSChallengeClient.getClass)
     yield
       given Logger[F] = logger
-      DNSChallengeClient[F](dnsRecordApi, zoneId)
+      new DNSChallengeClient[F](dnsRecordApi, zoneId)
   end apply
 end DNSChallengeClient
