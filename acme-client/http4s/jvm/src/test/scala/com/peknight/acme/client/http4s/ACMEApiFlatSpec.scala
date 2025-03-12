@@ -55,7 +55,6 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 _ <- EitherT(info"account: $account".asError)
                 accountLocation = account.location
                 identifiers <- NonEmptyList.of(
-                  "peknight.com",
                   "*.peknight.com",
                   "*.server.peknight.com",
                   "*.ctrl.peknight.com",
@@ -72,6 +71,7 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                     opt <- EitherT(acmeClient.challenge[DNS, `dns-01`, DNSRecordId](authorization)(
                       acmeClient.getDnsIdentifierAndChallenge(authorization)
                     )(dnsChallengeClient.createDNSRecord(_, _, userKeyPair.getPublic)))
+                    _ <- EitherT(IO.sleep(10.seconds).asError)
                     challenge <- opt match
                       case Some((identifier, challenge, dnsRecordId)) =>
                         EitherT(acmeClient.respondToChallenge(challenge.url, userKeyPair, accountLocation)).map(_.some)

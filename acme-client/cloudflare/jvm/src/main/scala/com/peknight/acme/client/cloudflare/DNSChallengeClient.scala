@@ -42,7 +42,7 @@ class DNSChallengeClient[F[_]: Sync](dnsRecordApi: DNSRecordApi[F], zoneId: Zone
   private def deleteDNSRecords(identifier: DNS, challenge: `dns-01`): EitherT[F, Error, List[DNSRecordId]] =
     for
       dnsRecords <- EitherT(dnsRecordApi.listDNSRecords(zoneId)(
-        ListDNSRecordsQuery(name = challenge.name(identifier).some)
+        ListDNSRecordsQuery(name = challenge.name(identifier).replaceAll("\\.$", "").some)
       ).asError)
       dnsRecordIds <- dnsRecords.traverse(dnsRecord =>
         EitherT(dnsRecordApi.deleteDNSRecord(zoneId, dnsRecord.id).asError)
