@@ -48,8 +48,8 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
             val eitherT =
               for
                 acmeClient <- EitherT(ACMEClient[IO, Challenge](client, stagingDirectory)(dsl.io).asError)
-                dnsRecordApi = DNSRecordApi[IO](PekToken.token)(client)(dsl.io)
-                dnsChallengeClient = DNSChallengeClient[IO](dnsRecordApi, PekZone.zoneId)
+                given DNSRecordApi[IO] = DNSRecordApi[IO](PekToken.token)(client)(dsl.io)
+                dnsChallengeClient <- EitherT(DNSChallengeClient[IO](PekZone.zoneId).asError)
                 userKeyPair <- EitherT(secp256r1.generateKeyPair[IO](provider = Some(provider)).asError)
                 account <- EitherT(acmeClient.newAccount(AccountClaims(termsOfServiceAgreed = Some(true)), userKeyPair))
                 _ <- EitherT(info"account: $account".asError)

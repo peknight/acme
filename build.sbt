@@ -123,6 +123,11 @@ lazy val acmeClientCloudflare = (crossProject(JSPlatform, JVMPlatform) in file("
       "com.peknight.cloudflare" %%% "dns-record-api" % pekCloudflareVersion,
     ),
   )
+  .jvmSettings(
+    libraryDependencies ++= Seq(
+      log4CatsSlf4j,
+    )
+  )
 
 val http4sVersion = "1.0.0-M34"
 val log4CatsVersion = "2.7.0"
