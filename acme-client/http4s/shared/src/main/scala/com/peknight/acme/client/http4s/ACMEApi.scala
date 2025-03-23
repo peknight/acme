@@ -117,7 +117,7 @@ class ACMEApi[F[_]: Async](
 
   private def getFromCache[A](cacheOption: Option[HttpResponse[A]]): F[Option[A]] =
     cacheOption match
-      case Some(HttpResponse(_, body, Some(expiration))) =>
+      case Some(HttpResponse(_, _, body, Some(expiration))) =>
         Clock.realTimeInstant[F].map(now => if now < expiration then body.some else none[A])
       case _ => none[A].pure[F]
 
@@ -130,7 +130,7 @@ class ACMEApi[F[_]: Async](
                                        (f: (A, Uri) => B)
                                        (using Decoder[Id, Cursor[Json], A]): F[Either[Error, B]] =
     postJws[A](jws, uri).map(_.flatMap {
-      case HttpResponse(headers, body, _) =>
+      case HttpResponse(_, headers, body, _) =>
         headers.getLocation(uri)
           .toRight(OptionEmpty.label(locationLabel))
           .map(location => f(body, location))

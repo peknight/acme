@@ -58,8 +58,8 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
         directory <- EitherT(acmeApi.directory(directoryUri))
         now <- EitherT(Clock.realTimeInstant[F].asError)
         _ <- EitherT(directoryRef.update {
-          case Some(HttpResponse(headers, body, None)) =>
-            Some(HttpResponse(headers, body, Some(now.plus(directoryMaxAge))))
+          case Some(HttpResponse(status, headers, body, None)) =>
+            Some(HttpResponse(status, headers, body, Some(now.plus(directoryMaxAge))))
           case directoryR => directoryR
         }.asError)
       yield
