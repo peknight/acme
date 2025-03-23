@@ -23,14 +23,12 @@ import com.peknight.acme.identifier.Identifier.DNS
 import com.peknight.acme.identifier.IdentifierType.dns
 import com.peknight.acme.order.{NewOrderHttpResponse, Order, OrderClaims}
 import com.peknight.cats.effect.ext.Clock
-import com.peknight.cats.ext.syntax.eitherT.{eLiftET, lLiftET, rLiftET}
+import com.peknight.cats.ext.syntax.eitherT.{lLiftET, rLiftET}
 import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.codec.cursor.Cursor
 import com.peknight.codec.{Decoder, Encoder}
 import com.peknight.commons.time.syntax.temporal.plus
 import com.peknight.error.Error
-import com.peknight.error.collection.CollectionEmpty
-import com.peknight.error.option.OptionEmpty
 import com.peknight.error.syntax.applicativeError.asError
 import com.peknight.error.syntax.either.label
 import com.peknight.http.HttpResponse
@@ -138,13 +136,14 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
   : F[Either[Error, Authorization[Challenge]]] =
     postAsGet[Authorization[Challenge]](authorizationUri, keyPair, accountLocation)(acmeApi.authorization[Challenge])
 
-  def queryChallenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Challenge]] =
-    postAsGet[Challenge](challengeUri, keyPair, accountLocation)(acmeApi.challenge[Challenge])
+  def queryChallenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, HttpResponse[Challenge]]] =
+    postAsGet[HttpResponse[Challenge]](challengeUri, keyPair, accountLocation)(acmeApi.challenge[Challenge])
 
-  def updateChallenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Challenge]] =
-    postAsGet[ChallengeClaims, Challenge](challengeUri, ChallengeClaims(), keyPair, Some(accountLocation))(
+  def updateChallenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri)
+  : F[Either[Error, Challenge]] =
+    postAsGet[ChallengeClaims, HttpResponse[Challenge]](challengeUri, ChallengeClaims(), keyPair, Some(accountLocation))(
       acmeApi.challenge[Challenge]
-    )
+    ).map(_.map(_.body))
 
   def challenge[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, A](authorization: Authorization[Challenge])
                                                                                (ci: => Either[Error, (I, C)])

@@ -83,8 +83,8 @@ class ACMEApi[F[_]: Async](
     postJws[Authorization[Challenge]](jws, uri).map(_.map(_.body))
 
   def challenge[Challenge](jws: JsonWebSignature, uri: Uri)(using Decoder[Id, Cursor[Json], Challenge])
-  : F[Either[Error, Challenge]] =
-    postJws[Challenge](jws, uri).map(_.map(_.body))
+  : F[Either[Error, HttpResponse[Challenge]]] =
+    postJws[Challenge](jws, uri)
 
   private def get[A](uri: Uri, cacheRef: Ref[F, Option[HttpResponse[A]]], label: String)
                     (using Decoder[Id, Cursor[Json], A])

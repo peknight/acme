@@ -1,8 +1,12 @@
 package com.peknight.acme.client.http4s
 
-import cats.data.{EitherT, NonEmptyList}
+import cats.data.{EitherT, NonEmptyList, StateT}
+import com.peknight.http4s.ext.syntax.headers.getRetryAfter
+import com.peknight.commons.time.syntax.instant.toDuration
 import cats.effect.IO
+import cats.effect.Clock
 import cats.effect.testing.scalatest.AsyncIOSpec
+import com.peknight.http.HttpResponse
 import cats.syntax.option.*
 import cats.syntax.parallel.*
 import cats.{Id, Show}
@@ -27,7 +31,8 @@ import com.peknight.error.syntax.applicativeError.asError
 import com.peknight.jose.jwk.JsonWebKey
 import com.peknight.logging.syntax.either.log
 import com.peknight.logging.syntax.eitherT.log
-import com.peknight.method.retry.syntax.eitherT.retry
+import com.peknight.method.retry.Retry
+import com.peknight.method.retry.syntax.eitherT.state as retry
 import com.peknight.security.Security
 import com.peknight.security.bouncycastle.jce.provider.BouncyCastleProvider
 import com.peknight.security.cipher.RSA
@@ -41,6 +46,7 @@ import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 import java.security.KeyPair
+import java.time.Instant
 import scala.concurrent.duration.*
 
 class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
@@ -93,16 +99,42 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                         for
                           c <- EitherT(acmeClient.updateChallenge(challenge.url, userKeyPair, accountLocation))
                             .log(name = "ACMEClient#updateChallenge", param = Some(challenge.url))
-                            .retry(interval = 1.minutes.some)(_.exists(c =>
-                              c.status === ChallengeStatus.valid || c.status === ChallengeStatus.invalid
-                            )) {
-                              (either, state, retry) =>
-                                either.log(name = "ACMEClient#updateChallenge#retry", param = Some((state, retry)))
-                            }
                             .map(_.some)
                           _ <- EitherT(IO.sleep(5.seconds).asError)
                           c <- EitherT(acmeClient.queryChallenge(challenge.url, userKeyPair, accountLocation))
                             .log(name = "ACMEClient#queryChallenge", param = Some(challenge.url))
+                            .retry(none[Instant]) { (either, state) =>
+                              val interval = 3.seconds
+                              if state.attempts >= 10 then
+                                StateT.pure[IO, Option[Instant], Retry](Retry.MaxAttempts(state.attempts))
+                              else
+                                either match
+                                  case Right(HttpResponse(_, body, _)) if body.status === ChallengeStatus.valid ||
+                                    body.status === ChallengeStatus.invalid =>
+                                    StateT.pure[IO, Option[Instant], Retry](Retry.Success)
+                                  case _ => either.toOption.map(_.headers).flatMap(_.getRetryAfter) match
+                                    case Some(retryAfter: Instant) =>
+                                      for
+                                        sleep <- StateT.liftF[IO, Option[Instant], FiniteDuration](
+                                          Clock[IO].realTime.map(now => retryAfter.toDuration - now)
+                                        )
+                                        sleepTime = if sleep > 0.nano then sleep else interval
+                                        _ <- StateT.set[IO, Option[Instant]](if sleep > 0.nano then retryAfter.some else none)
+                                      yield
+                                        if sleepTime > 0.nano then Retry.After(sleep) else Retry.Now
+                                    case _ =>
+                                      StateT.get[IO, Option[Instant]].flatMap {
+                                        case Some(retryAfter: Instant) =>
+                                          for
+                                            sleep <- StateT.liftF[IO, Option[Instant], FiniteDuration](
+                                              Clock[IO].realTime.map(now => retryAfter.toDuration - now)
+                                            )
+                                            sleepTime = if sleep > 0.nano then sleep else interval
+                                          yield
+                                            if sleepTime > 0.nano then Retry.After(sleep) else Retry.Now
+                                        case _ => StateT.pure[IO, Option[Instant], Retry](Retry.After(interval))
+                                      }
+                            }
                             .map(_.some)
                         yield
                           c

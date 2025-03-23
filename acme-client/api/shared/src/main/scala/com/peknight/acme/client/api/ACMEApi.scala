@@ -9,6 +9,7 @@ import com.peknight.codec.Decoder
 import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.codec.cursor.Cursor
 import com.peknight.error.Error
+import com.peknight.http.HttpResponse
 import com.peknight.jose.jws.JsonWebSignature
 import io.circe.Json
 import org.http4s.Uri
@@ -23,5 +24,5 @@ trait ACMEApi[F[_]]:
   def authorization[Challenge](jws: JsonWebSignature, uri: Uri)(using Decoder[Id, Cursor[Json], Challenge])
   : F[Either[Error, Authorization[Challenge]]]
   def challenge[Challenge](jws: JsonWebSignature, uri: Uri)(using Decoder[Id, Cursor[Json], Challenge])
-  : F[Either[Error, Challenge]]
+  : F[Either[Error, HttpResponse[Challenge]]]
 end ACMEApi

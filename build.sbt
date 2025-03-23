@@ -89,6 +89,7 @@ lazy val acmeClientHttp4s = (crossProject(JSPlatform, JVMPlatform) in file("acme
     libraryDependencies ++= Seq(
       "org.http4s" %%% "http4s-client" % http4sVersion,
       "com.peknight" %%% "codec-http4s-circe" % pekCodecVersion,
+      "com.peknight" %%% "commons-time" % pekCommonsVersion,
       "com.peknight" %%% "security-bcprov" % pekSecurityVersion % Test,
       "com.peknight" %%% "method-core" % pekMethodVersion % Test,
       "com.peknight" %%% "logback-config" % pekLoggingVersion % Test,
@@ -138,6 +139,7 @@ val scalaTestVersion = "3.2.19"
 val catsEffectTestingScalaTestVersion = "1.6.0"
 val pekVersion = "0.1.0-SNAPSHOT"
 val pekCodecVersion = pekVersion
+val pekCommonsVersion = pekVersion
 val pekHttpVersion = pekVersion
 val pekSecurityVersion = pekVersion
 val pekJoseVersion = pekVersion
