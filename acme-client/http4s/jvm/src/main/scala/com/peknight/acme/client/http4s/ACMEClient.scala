@@ -138,10 +138,10 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
   : F[Either[Error, Authorization[Challenge]]] =
     postAsGet[Authorization[Challenge]](authorizationUri, keyPair, accountLocation)(acmeApi.authorization[Challenge])
 
-  def challenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Challenge]] =
+  def queryChallenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Challenge]] =
     postAsGet[Challenge](challengeUri, keyPair, accountLocation)(acmeApi.challenge[Challenge])
 
-  def respondToChallenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Challenge]] =
+  def updateChallenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Challenge]] =
     postAsGet[ChallengeClaims, Challenge](challengeUri, ChallengeClaims(), keyPair, Some(accountLocation))(
       acmeApi.challenge[Challenge]
     )

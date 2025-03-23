@@ -11,7 +11,7 @@ import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.error.Error
 import org.http4s.Uri
 
-import java.security.{KeyPair, PublicKey}
+import java.security.KeyPair
 
 trait ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge]:
   def directory: F[Either[Error, Directory]]
@@ -22,17 +22,11 @@ trait ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge]:
   def order(orderLocation: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Order]]
   def authorization(authorizationUri: Uri, keyPair: KeyPair, accountLocation: Uri)
   : F[Either[Error, Authorization[Challenge]]]
-  def challenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Challenge]]
-  def respondToChallenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Challenge]]
+  def queryChallenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Challenge]]
+  def updateChallenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Challenge]]
   def challenge[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, A](authorization: Authorization[Challenge])
                                                                                (ci: => Either[Error, (I, C)])
                                                                                (f: (I, C) => F[Either[Error, Option[A]]])
   : F[Either[Error, Option[(I, C, Option[A])]]]
   def getDnsIdentifierAndChallenge(authorization: Authorization[Challenge]): Either[Error, (DNS, `dns-01`)]
-  def createDNSRecord[DNSRecordId](identifier: DNS, challenge: `dns-01`, publicKey: PublicKey)
-                                  (using dnsChallengeClient: DNSChallengeClient[F, DNSRecordId])
-  : F[Either[Error, Option[DNSRecordId]]]
-  def cleanDNSRecords[DNSRecordId](identifier: DNS, challenge: `dns-01`, dnsRecordId: Option[DNSRecordId])
-                                  (using dnsChallengeClient: DNSChallengeClient[F, DNSRecordId])
-  : F[Either[Error, List[DNSRecordId]]]
 end ACMEClient

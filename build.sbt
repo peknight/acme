@@ -90,6 +90,8 @@ lazy val acmeClientHttp4s = (crossProject(JSPlatform, JVMPlatform) in file("acme
       "org.http4s" %%% "http4s-client" % http4sVersion,
       "com.peknight" %%% "codec-http4s-circe" % pekCodecVersion,
       "com.peknight" %%% "security-bcprov" % pekSecurityVersion % Test,
+      "com.peknight" %%% "method-core" % pekMethodVersion % Test,
+      "com.peknight" %%% "logback-config" % pekLoggingVersion % Test,
       "com.peknight.cloudflare" %%% "dns-record-http4s" % pekCloudflareVersion % Test,
       "com.peknight.cloudflare" %%% "test" % pekCloudflareVersion % Test,
       "org.http4s" %%% "http4s-ember-client" % http4sVersion % Test,
@@ -100,7 +102,6 @@ lazy val acmeClientHttp4s = (crossProject(JSPlatform, JVMPlatform) in file("acme
   .jvmSettings(
     libraryDependencies ++= Seq(
       log4CatsSlf4j % Test,
-      pekLogbackConfig % Test,
       logbackClassic % Test,
     ),
   )
@@ -121,6 +122,7 @@ lazy val acmeClientCloudflare = (crossProject(JSPlatform, JVMPlatform) in file("
     name := "acme-client-cloudflare",
     libraryDependencies ++= Seq(
       "com.peknight.cloudflare" %%% "dns-record-api" % pekCloudflareVersion,
+      "com.peknight" %%% "logging-core" % pekLoggingVersion,
     ),
   )
   .jvmSettings(
@@ -142,6 +144,7 @@ val pekJoseVersion = pekVersion
 val pekCloudflareVersion = pekVersion
 val pekExtVersion = pekVersion
 val pekErrorVersion = pekVersion
+val pekMethodVersion = pekVersion
 val pekLoggingVersion = pekVersion
 
 val log4CatsSlf4j = "org.typelevel" %% "log4cats-slf4j" % log4CatsVersion
