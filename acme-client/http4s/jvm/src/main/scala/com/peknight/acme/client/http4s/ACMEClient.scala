@@ -14,14 +14,13 @@ import com.peknight.acme.authorization.{Authorization, AuthorizationStatus}
 import com.peknight.acme.challenge.Challenge.`dns-01`
 import com.peknight.acme.challenge.{ChallengeClaims, ChallengeStatus}
 import com.peknight.acme.client.api
-import com.peknight.acme.client.api.DNSChallengeClient
 import com.peknight.acme.client.error.*
 import com.peknight.acme.client.jose.{signEmptyString, signJson}
 import com.peknight.acme.directory.Directory
 import com.peknight.acme.identifier.Identifier
 import com.peknight.acme.identifier.Identifier.DNS
 import com.peknight.acme.identifier.IdentifierType.dns
-import com.peknight.acme.order.{NewOrderHttpResponse, Order, OrderClaims, OrderFinalizeResponse}
+import com.peknight.acme.order.*
 import com.peknight.cats.effect.ext.Clock
 import com.peknight.cats.ext.syntax.eitherT.{lLiftET, rLiftET}
 import com.peknight.codec.base.Base64UrlNoPad
@@ -41,7 +40,7 @@ import org.http4s.Uri
 import org.http4s.client.Client
 import org.http4s.client.dsl.Http4sClientDsl
 
-import java.security.{KeyPair, PublicKey}
+import java.security.KeyPair
 import java.util.Locale
 import scala.concurrent.duration.*
 
@@ -132,9 +131,11 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
   def order(orderLocation: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, HttpResponse[Order]]] =
     postAsGet[HttpResponse[Order]](orderLocation, keyPair, accountLocation)(acmeApi.order)
 
-  def orderFinalize(finalizeUri: Uri, keyPair: KeyPair, accountLocation: Uri)
+  def orderFinalize(finalizeUri: Uri, claims: FinalizeClaims, keyPair: KeyPair, accountLocation: Uri)
   : F[Either[Error, HttpResponse[OrderFinalizeResponse]]] =
-    postAsGet[HttpResponse[OrderFinalizeResponse]](finalizeUri, keyPair, accountLocation)(acmeApi.orderFinalize)
+    postAsGet[FinalizeClaims, HttpResponse[OrderFinalizeResponse]](finalizeUri, claims, keyPair, Some(accountLocation))(
+      acmeApi.orderFinalize
+    )
 
   def authorization(authorizationUri: Uri, keyPair: KeyPair, accountLocation: Uri)
   : F[Either[Error, Authorization[Challenge]]] =
@@ -173,16 +174,6 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
       challenge <- one(dnsChallenges).label("dnsChallenges")
     yield
       (identifier, challenge)
-
-  def createDNSRecord[DNSRecordId](identifier: DNS, challenge: `dns-01`, publicKey: PublicKey)
-                                  (using dnsChallengeClient: DNSChallengeClient[F, DNSRecordId])
-  : F[Either[Error, Option[DNSRecordId]]] =
-    dnsChallengeClient.createDNSRecord(identifier, challenge, publicKey)
-
-  def cleanDNSRecords[DNSRecordId](identifier: DNS, challenge: `dns-01`, dnsRecordId: Option[DNSRecordId])
-                                  (using dnsChallengeClient: DNSChallengeClient[F, DNSRecordId])
-  : F[Either[Error, List[DNSRecordId]]] =
-    dnsChallengeClient.cleanDNSRecord(identifier, challenge, dnsRecordId)
 
   private def postAsGet[A, B](uri: Uri, payload: A, keyPair: KeyPair, accountLocation: Option[Uri] = None)
                              (f: (JsonWebSignature, Uri) => F[Either[Error, B]])
