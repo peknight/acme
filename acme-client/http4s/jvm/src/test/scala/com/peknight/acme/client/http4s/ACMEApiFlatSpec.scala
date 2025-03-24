@@ -1,6 +1,7 @@
 package com.peknight.acme.client.http4s
 
 import cats.data.{EitherT, NonEmptyList, StateT}
+import com.peknight.validation.std.either.isTrue
 import com.peknight.http4s.ext.syntax.headers.getRetryAfter
 import com.peknight.commons.time.syntax.instant.toDuration
 import cats.effect.IO
@@ -11,15 +12,17 @@ import cats.syntax.option.*
 import cats.syntax.parallel.*
 import cats.{Id, Show}
 import com.peknight.acme.account.AccountClaims
+import com.peknight.acme.authorization.AuthorizationStatus
 import com.peknight.acme.challenge.Challenge.`dns-01`
 import com.peknight.acme.challenge.ChallengeStatus
 import com.peknight.acme.client.cloudflare.DNSChallengeClient
+import com.peknight.acme.client.error.{AuthorizationStatusNotValid, ChallengeStatusNotValid, OrderStatusNotReady}
 import com.peknight.acme.client.letsencrypt.challenge.Challenge
 import com.peknight.acme.client.letsencrypt.uri
 import com.peknight.acme.client.letsencrypt.uri.stagingDirectory
 import com.peknight.acme.identifier.Identifier
 import com.peknight.acme.identifier.Identifier.DNS
-import com.peknight.acme.order.OrderClaims
+import com.peknight.acme.order.{OrderClaims, OrderStatus}
 import com.peknight.cats.ext.syntax.eitherT.{eLiftET, rLiftET}
 import com.peknight.cloudflare.dns.record.DNSRecordId
 import com.peknight.cloudflare.dns.record.http4s.DNSRecordApi
@@ -27,6 +30,7 @@ import com.peknight.cloudflare.test.{PekToken, PekZone}
 import com.peknight.codec.Encoder
 import com.peknight.codec.syntax.encoder.asS
 import com.peknight.error.Error
+import com.peknight.error.option.OptionEmpty
 import com.peknight.error.syntax.applicativeError.asError
 import com.peknight.jose.jwk.JsonWebKey
 import com.peknight.logging.syntax.either.log
@@ -94,7 +98,7 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                     )(dnsChallengeClient.createDNSRecord(_, _, userKeyPair.getPublic)))
                       .log(name = "ACMEClient#challenge", param = Some(authorization))
                     _ <- EitherT(IO.sleep(2.minutes).asError)
-                    challenge <- opt match
+                    authorization <- opt match
                       case Some((identifier, challenge, dnsRecordId)) =>
                         for
                           c <- EitherT(acmeClient.updateChallenge(challenge.url, userKeyPair, accountLocation))
@@ -108,18 +112,23 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                                 status === ChallengeStatus.invalid)
                             )((either, state, retry) => either.log(name = "ACMEClient#queryChallenge#retry",
                               param = (state, retry).some))
-                            .map(_.some)
+                          c <- isTrue(c.body.status === ChallengeStatus.valid,
+                            c.body.error.getOrElse(ChallengeStatusNotValid(c.body.status))).eLiftET
+                          authorization <- EitherT(acmeClient.authorization(authorizationUri, userKeyPair, accountLocation))
+                            .log(name = "ACMEClient#authorization", param = Some(authorizationUri))
                         yield
-                          c
-                      case None => none[Challenge].rLiftET[IO, Error]
+                          authorization
+                      case None => authorization.rLiftET[IO, Error]
+                    _ <- isTrue(authorization.status === AuthorizationStatus.valid,
+                      AuthorizationStatusNotValid(authorization.status)).eLiftET
                   yield
                     authorization
                 }
-                domainKeyPair <- EitherT(RSA.keySizeGenerateKeyPair[IO](4096).asError)
-                _ <- EitherT(IO.sleep(10.seconds).asError)
-                _ <- EitherT(acmeClient.account(userKeyPair, accountLocation)).log(name = "ACMEClient#account")
-                _ <- EitherT(acmeClient.order(orderLocation, userKeyPair, accountLocation))
+                order <- EitherT(acmeClient.order(orderLocation, userKeyPair, accountLocation))
                   .log(name = "ACMEClient#order", param = Some(orderLocation))
+                _ <- isTrue(order.status === OrderStatus.ready, OrderStatusNotReady(order.status)).eLiftET
+                domainKeyPair <- EitherT(RSA.keySizeGenerateKeyPair[IO](4096).asError)
+                _ <- EitherT(acmeClient.account(userKeyPair, accountLocation)).log(name = "ACMEClient#account")
               yield
                 account
             eitherT.value

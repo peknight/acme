@@ -1,6 +1,6 @@
 package com.peknight.acme.order
 
-import cats.Applicative
+import cats.{Applicative, Eq}
 import com.peknight.codec.Codec
 import com.peknight.codec.configuration.CodecConfiguration
 import com.peknight.codec.cursor.Cursor
@@ -41,6 +41,7 @@ enum OrderStatus:
   case pending, ready, processing, valid, invalid
 end OrderStatus
 object OrderStatus:
+  given eqOrderStatus: Eq[OrderStatus] = Eq.fromUniversalEquals[OrderStatus]
   given stringCodecOrderStatus[F[_]: Applicative]: Codec[F, String, String, OrderStatus] =
     EnumCodecDerivation.unsafeDerivedStringCodecEnum[F, OrderStatus](using CodecConfiguration.default)
   given codecOrderStatus[F[_]: Applicative, S: StringType]: Codec[F, S, Cursor[S], OrderStatus] =
