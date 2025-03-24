@@ -104,9 +104,9 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                           c <- EitherT(acmeClient.queryChallenge(challenge.url, userKeyPair, accountLocation))
                             .log(name = "ACMEClient#queryChallenge", param = Some(challenge.url))
                             .retry(Some(10), interval = 3.seconds.some)(
-                              _.map(_.body.status).exists(status => status === ChallengeStatus.valid || 
+                              _.map(_.body.status).exists(status => status === ChallengeStatus.valid ||
                                 status === ChallengeStatus.invalid)
-                            )((either, state, retry) => either.log(name = "ACMEClient#queryChallenge#retry", 
+                            )((either, state, retry) => either.log(name = "ACMEClient#queryChallenge#retry",
                               param = (state, retry).some))
                             .map(_.some)
                         yield
