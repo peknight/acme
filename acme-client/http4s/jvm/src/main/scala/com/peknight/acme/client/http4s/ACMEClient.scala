@@ -129,8 +129,8 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
         response
     eitherT.value
 
-  def order(orderLocation: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Order]] =
-    postAsGet[Order](orderLocation, keyPair, accountLocation)(acmeApi.order)
+  def order(orderLocation: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, HttpResponse[Order]]] =
+    postAsGet[HttpResponse[Order]](orderLocation, keyPair, accountLocation)(acmeApi.order)
 
   def authorization(authorizationUri: Uri, keyPair: KeyPair, accountLocation: Uri)
   : F[Either[Error, Authorization[Challenge]]] =

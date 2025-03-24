@@ -1,13 +1,8 @@
 package com.peknight.acme.client.http4s
 
-import cats.data.{EitherT, NonEmptyList, StateT}
-import com.peknight.validation.std.either.isTrue
-import com.peknight.http4s.ext.syntax.headers.getRetryAfter
-import com.peknight.commons.time.syntax.instant.toDuration
+import cats.data.{EitherT, NonEmptyList}
 import cats.effect.IO
-import cats.effect.Clock
 import cats.effect.testing.scalatest.AsyncIOSpec
-import com.peknight.http.HttpResponse
 import cats.syntax.option.*
 import cats.syntax.parallel.*
 import cats.{Id, Show}
@@ -30,17 +25,18 @@ import com.peknight.cloudflare.test.{PekToken, PekZone}
 import com.peknight.codec.Encoder
 import com.peknight.codec.syntax.encoder.asS
 import com.peknight.error.Error
-import com.peknight.error.option.OptionEmpty
 import com.peknight.error.syntax.applicativeError.asError
+import com.peknight.http.HttpResponse
+import com.peknight.http.method.retry.syntax.eitherT.retry
 import com.peknight.jose.jwk.JsonWebKey
 import com.peknight.logging.syntax.either.log
 import com.peknight.logging.syntax.eitherT.log
 import com.peknight.method.retry.Retry
-import com.peknight.http.method.retry.syntax.eitherT.retry
 import com.peknight.security.Security
 import com.peknight.security.bouncycastle.jce.provider.BouncyCastleProvider
 import com.peknight.security.cipher.RSA
 import com.peknight.security.ecc.sec.secp256r1
+import com.peknight.validation.std.either.isTrue
 import io.circe.Json
 import org.http4s.*
 import org.http4s.client.dsl
@@ -50,7 +46,6 @@ import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 import java.security.KeyPair
-import java.time.Instant
 import scala.concurrent.duration.*
 
 class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
@@ -107,9 +102,8 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                           _ <- EitherT(IO.sleep(5.seconds).asError)
                           c <- EitherT(acmeClient.queryChallenge(challenge.url, userKeyPair, accountLocation))
                             .log(name = "ACMEClient#queryChallenge", param = Some(challenge.url))
-                            .retry(Some(10), interval = 3.seconds.some)(
-                              _.map(_.body.status).exists(status => status === ChallengeStatus.valid ||
-                                status === ChallengeStatus.invalid)
+                            .retry(timeout = 1.minutes.some, interval = 3.seconds.some)(
+                              _.map(_.body.status).exists(Set(ChallengeStatus.valid, ChallengeStatus.invalid).contains)
                             )((either, state, retry) => either.log(name = "ACMEClient#queryChallenge#retry",
                               param = (state, retry).some))
                           c <- isTrue(c.body.status === ChallengeStatus.valid,
@@ -126,7 +120,11 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 }
                 order <- EitherT(acmeClient.order(orderLocation, userKeyPair, accountLocation))
                   .log(name = "ACMEClient#order", param = Some(orderLocation))
-                _ <- isTrue(order.status === OrderStatus.ready, OrderStatusNotReady(order.status)).eLiftET
+                  .retry(timeout = 1.minutes.some, interval = 3.seconds.some)(
+                    _.map(_.body.status).exists(Set(OrderStatus.ready, OrderStatus.valid, OrderStatus.invalid).contains)
+                  )((either, state, retry) => either.log(name = "ACMEClient#order#retry",
+                    param = (state, retry).some))
+                _ <- isTrue(order.body.status === OrderStatus.ready, OrderStatusNotReady(order.body.status)).eLiftET
                 domainKeyPair <- EitherT(RSA.keySizeGenerateKeyPair[IO](4096).asError)
                 _ <- EitherT(acmeClient.account(userKeyPair, accountLocation)).log(name = "ACMEClient#account")
               yield

@@ -20,7 +20,7 @@ trait ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge]:
   def newAccount(claims: AccountClaims, keyPair: KeyPair): F[Either[Error, NewAccountHttpResponse]]
   def account(keyPair: KeyPair, accountLocation: Uri): F[Either[Error, NewAccountResponse]]
   def newOrder(claims: OrderClaims, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, NewOrderHttpResponse]]
-  def order(orderLocation: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Order]]
+  def order(orderLocation: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, HttpResponse[Order]]]
   def authorization(authorizationUri: Uri, keyPair: KeyPair, accountLocation: Uri)
   : F[Either[Error, Authorization[Challenge]]]
   def queryChallenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, HttpResponse[Challenge]]]
