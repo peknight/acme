@@ -21,7 +21,7 @@ trait ACMEApi[F[_]]:
   def account(jws: JsonWebSignature, uri: Uri): F[Either[Error, NewAccountResponse]]
   def newOrder(jws: JsonWebSignature, uri: Uri): F[Either[Error, NewOrderHttpResponse]]
   def order(jws: JsonWebSignature, uri: Uri): F[Either[Error, HttpResponse[Order]]]
-  def orderFinalize(jws: JsonWebSignature, uri: Uri): F[Either[Error, HttpResponse[Order]]]
+  def finalizeOrder(jws: JsonWebSignature, uri: Uri): F[Either[Error, HttpResponse[Order]]]
   def authorization[Challenge](jws: JsonWebSignature, uri: Uri)(using Decoder[Id, Cursor[Json], Challenge])
   : F[Either[Error, Authorization[Challenge]]]
   def challenge[Challenge](jws: JsonWebSignature, uri: Uri)(using Decoder[Id, Cursor[Json], Challenge])

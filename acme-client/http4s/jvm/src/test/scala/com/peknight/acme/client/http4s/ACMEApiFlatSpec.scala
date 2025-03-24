@@ -133,9 +133,9 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 csr <- EitherT(PKCS10CertificationRequest.certificateSigningRequest[IO](generalNames, domainKeyPair))
                   .log(name = "ACMEClient#certificateSigningRequest", param = Some(generalNames))
                 finalizeClaims = FinalizeClaims(csr)
-                orderFinalize <- EitherT(acmeClient.orderFinalize(order.body.finalizeUri, finalizeClaims, userKeyPair,
+                order <- EitherT(acmeClient.finalizeOrder(order.body.finalizeUri, finalizeClaims, userKeyPair,
                   accountLocation))
-                  .log(name = "ACMEClient#orderFinalize", param = Some(order.body.finalizeUri))
+                  .log(name = "ACMEClient#finalizeOrder", param = Some(order.body.finalizeUri))
                 order <- EitherT(acmeClient.order(orderLocation, userKeyPair, accountLocation))
                   .log(name = "ACMEClient#order", param = Some(orderLocation))
                   .retry(timeout = 1.minutes.some, interval = 3.seconds.some)(

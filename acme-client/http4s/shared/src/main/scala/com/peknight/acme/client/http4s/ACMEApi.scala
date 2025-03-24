@@ -78,7 +78,7 @@ class ACMEApi[F[_]: Async](
   def order(jws: JsonWebSignature, uri: Uri): F[Either[Error, HttpResponse[Order]]] =
     postJws[Order](jws, uri)
 
-  def orderFinalize(jws: JsonWebSignature, uri: Uri): F[Either[Error, HttpResponse[Order]]] =
+  def finalizeOrder(jws: JsonWebSignature, uri: Uri): F[Either[Error, HttpResponse[Order]]] =
     postJws[Order](jws, uri)
 
   def authorization[Challenge](jws: JsonWebSignature, uri: Uri)(using Decoder[Id, Cursor[Json], Challenge])
