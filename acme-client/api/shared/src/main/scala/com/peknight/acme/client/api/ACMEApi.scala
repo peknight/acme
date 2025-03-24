@@ -4,7 +4,7 @@ import cats.Id
 import com.peknight.acme.account.{NewAccountHttpResponse, NewAccountResponse}
 import com.peknight.acme.authorization.Authorization
 import com.peknight.acme.directory.Directory
-import com.peknight.acme.order.{NewOrderHttpResponse, Order, OrderFinalizeResponse}
+import com.peknight.acme.order.{NewOrderHttpResponse, Order}
 import com.peknight.codec.Decoder
 import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.codec.cursor.Cursor
@@ -21,7 +21,7 @@ trait ACMEApi[F[_]]:
   def account(jws: JsonWebSignature, uri: Uri): F[Either[Error, NewAccountResponse]]
   def newOrder(jws: JsonWebSignature, uri: Uri): F[Either[Error, NewOrderHttpResponse]]
   def order(jws: JsonWebSignature, uri: Uri): F[Either[Error, HttpResponse[Order]]]
-  def orderFinalize(jws: JsonWebSignature, uri: Uri): F[Either[Error, HttpResponse[OrderFinalizeResponse]]]
+  def orderFinalize(jws: JsonWebSignature, uri: Uri): F[Either[Error, HttpResponse[Order]]]
   def authorization[Challenge](jws: JsonWebSignature, uri: Uri)(using Decoder[Id, Cursor[Json], Challenge])
   : F[Either[Error, Authorization[Challenge]]]
   def challenge[Challenge](jws: JsonWebSignature, uri: Uri)(using Decoder[Id, Cursor[Json], Challenge])

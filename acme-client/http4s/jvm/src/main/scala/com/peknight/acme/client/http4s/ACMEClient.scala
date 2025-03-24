@@ -132,8 +132,8 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
     postAsGet[HttpResponse[Order]](orderLocation, keyPair, accountLocation)(acmeApi.order)
 
   def orderFinalize(finalizeUri: Uri, claims: FinalizeClaims, keyPair: KeyPair, accountLocation: Uri)
-  : F[Either[Error, HttpResponse[OrderFinalizeResponse]]] =
-    postAsGet[FinalizeClaims, HttpResponse[OrderFinalizeResponse]](finalizeUri, claims, keyPair, Some(accountLocation))(
+  : F[Either[Error, HttpResponse[Order]]] =
+    postAsGet[FinalizeClaims, HttpResponse[Order]](finalizeUri, claims, keyPair, Some(accountLocation))(
       acmeApi.orderFinalize
     )
 

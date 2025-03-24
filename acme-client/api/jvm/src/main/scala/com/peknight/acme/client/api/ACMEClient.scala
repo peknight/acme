@@ -6,7 +6,7 @@ import com.peknight.acme.challenge.Challenge.`dns-01`
 import com.peknight.acme.directory.Directory
 import com.peknight.acme.identifier.Identifier
 import com.peknight.acme.identifier.Identifier.DNS
-import com.peknight.acme.order.{FinalizeClaims, NewOrderHttpResponse, Order, OrderClaims, OrderFinalizeResponse}
+import com.peknight.acme.order.{FinalizeClaims, NewOrderHttpResponse, Order, OrderClaims}
 import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.error.Error
 import com.peknight.http.HttpResponse
@@ -21,7 +21,7 @@ trait ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge]:
   def account(keyPair: KeyPair, accountLocation: Uri): F[Either[Error, NewAccountResponse]]
   def newOrder(claims: OrderClaims, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, NewOrderHttpResponse]]
   def order(orderLocation: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, HttpResponse[Order]]]
-  def orderFinalize(finalizeUri: Uri, claims: FinalizeClaims, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, HttpResponse[OrderFinalizeResponse]]]
+  def orderFinalize(finalizeUri: Uri, claims: FinalizeClaims, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, HttpResponse[Order]]]
   def authorization(authorizationUri: Uri, keyPair: KeyPair, accountLocation: Uri)
   : F[Either[Error, Authorization[Challenge]]]
   def queryChallenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, HttpResponse[Challenge]]]
