@@ -1,11 +1,13 @@
 package com.peknight.acme.identifier
 
-import cats.Monad
+import cats.{Id, Monad}
+import com.comcast.ip4s.IpAddress
 import com.peknight.codec.circe.Ext
 import com.peknight.codec.circe.iso.codec
 import com.peknight.codec.circe.sum.jsonType.given
 import com.peknight.codec.configuration.CodecConfiguration
 import com.peknight.codec.cursor.Cursor
+import com.peknight.codec.ip4s.instances.host.stringCodecIpAddress
 import com.peknight.codec.sum.*
 import com.peknight.codec.{Codec, Decoder, Encoder}
 import com.peknight.error.Error
@@ -26,10 +28,12 @@ object Identifier:
   case class DNS(value: String, ancestorDomain: Option[String] = None, subdomainAuthAllowed: Option[Boolean] = None,
                  ext: JsonObject = JsonObject.empty) extends Identifier:
     def `type`: IdentifierType = IdentifierType.dns
+    def asciiValue: Either[Error, String] = toAscii(value)
   end DNS
   case class IP(value: String, ancestorDomain: Option[String] = None, subdomainAuthAllowed: Option[Boolean] = None,
                  ext: JsonObject = JsonObject.empty) extends Identifier:
     def `type`: IdentifierType = IdentifierType.ip
+    def ipAddress: Either[Error, IpAddress] = stringCodecIpAddress[Id].decode(value)
   end IP
   case class Email(value: String, ancestorDomain: Option[String] = None, subdomainAuthAllowed: Option[Boolean] = None,
                 ext: JsonObject = JsonObject.empty) extends Identifier:
@@ -46,8 +50,11 @@ object Identifier:
     def `type`: IdentifierType = IdentifierType.RESERVED
   end Reserved
 
+  private def toAscii(domain: String): Either[Error, String] =
+    Try(IDN.toASCII(domain.trim).toLowerCase(Locale.ENGLISH)).asError
+
   def dns(domain: String): Either[Error, Identifier] =
-    Try(IDN.toASCII(domain.trim).toLowerCase(Locale.ENGLISH)).asError.map(DNS(_))
+    toAscii(domain).map(DNS(_))
 
   private val constructorNameMap: Map[String, String] = Map(
     "DNS" -> "dns",

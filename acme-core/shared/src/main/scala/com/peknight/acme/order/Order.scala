@@ -34,7 +34,7 @@ case class Order(
                   replaces: Option[String] = None,
                   profile: Option[String] = None,
                   ext: JsonObject = JsonObject.empty
-                ) extends Ext
+                ) extends Ext with OrderPlatform
 object Order:
   private val memberNameMap: Map[String, String] = Map(
     "finalizeUri" -> "finalize",

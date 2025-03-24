@@ -21,7 +21,7 @@ import com.peknight.acme.directory.Directory
 import com.peknight.acme.identifier.Identifier
 import com.peknight.acme.identifier.Identifier.DNS
 import com.peknight.acme.identifier.IdentifierType.dns
-import com.peknight.acme.order.{NewOrderHttpResponse, Order, OrderClaims}
+import com.peknight.acme.order.{NewOrderHttpResponse, Order, OrderClaims, OrderFinalizeResponse}
 import com.peknight.cats.effect.ext.Clock
 import com.peknight.cats.ext.syntax.eitherT.{lLiftET, rLiftET}
 import com.peknight.codec.base.Base64UrlNoPad
@@ -131,6 +131,10 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
 
   def order(orderLocation: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, HttpResponse[Order]]] =
     postAsGet[HttpResponse[Order]](orderLocation, keyPair, accountLocation)(acmeApi.order)
+
+  def orderFinalize(finalizeUri: Uri, keyPair: KeyPair, accountLocation: Uri)
+  : F[Either[Error, HttpResponse[OrderFinalizeResponse]]] =
+    postAsGet[HttpResponse[OrderFinalizeResponse]](finalizeUri, keyPair, accountLocation)(acmeApi.orderFinalize)
 
   def authorization(authorizationUri: Uri, keyPair: KeyPair, accountLocation: Uri)
   : F[Either[Error, Authorization[Challenge]]] =

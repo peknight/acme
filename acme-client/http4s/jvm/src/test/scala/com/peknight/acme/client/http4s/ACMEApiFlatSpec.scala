@@ -8,16 +8,17 @@ import cats.syntax.parallel.*
 import cats.{Id, Show}
 import com.peknight.acme.account.AccountClaims
 import com.peknight.acme.authorization.AuthorizationStatus
+import com.peknight.acme.bouncycastle.pkcs.PKCS10CertificationRequest
 import com.peknight.acme.challenge.Challenge.`dns-01`
 import com.peknight.acme.challenge.ChallengeStatus
 import com.peknight.acme.client.cloudflare.DNSChallengeClient
-import com.peknight.acme.client.error.{AuthorizationStatusNotValid, ChallengeStatusNotValid, OrderStatusNotReady}
+import com.peknight.acme.client.error.{AuthorizationStatusNotValid, ChallengeStatusNotValid, OrderStatusNotReady, OrderStatusNotValid}
 import com.peknight.acme.client.letsencrypt.challenge.Challenge
 import com.peknight.acme.client.letsencrypt.uri
 import com.peknight.acme.client.letsencrypt.uri.stagingDirectory
 import com.peknight.acme.identifier.Identifier
 import com.peknight.acme.identifier.Identifier.DNS
-import com.peknight.acme.order.{OrderClaims, OrderStatus}
+import com.peknight.acme.order.{FinalizeClaims, OrderClaims, OrderStatus}
 import com.peknight.cats.ext.syntax.eitherT.{eLiftET, rLiftET}
 import com.peknight.cloudflare.dns.record.DNSRecordId
 import com.peknight.cloudflare.dns.record.http4s.DNSRecordApi
@@ -49,6 +50,7 @@ import java.security.KeyPair
 import scala.concurrent.duration.*
 
 class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
+
   "ACME Api Directory" should "succeed" in {
     def showJson[A](using Encoder[Id, Json, A]): Show[A] = Show.show(a => a.asS[Id, Json].deepDropNullValues.noSpaces)
     given [A]: Show[A] = Show.fromToString[A]
@@ -125,7 +127,21 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                   )((either, state, retry) => either.log(name = "ACMEClient#order#retry",
                     param = (state, retry).some))
                 _ <- isTrue(order.body.status === OrderStatus.ready, OrderStatusNotReady(order.body.status)).eLiftET
+                generalNames <- order.body.toGeneralNames.eLiftET[IO]
                 domainKeyPair <- EitherT(RSA.keySizeGenerateKeyPair[IO](4096).asError)
+                  .log(name = "ACMEClient#generateDomainKeyPair")
+                csr <- EitherT(PKCS10CertificationRequest.certificateSigningRequest[IO](generalNames, domainKeyPair))
+                  .log(name = "ACMEClient#certificateSigningRequest", param = Some(generalNames))
+                finalizeClaims = FinalizeClaims(csr)
+                orderFinalize <- EitherT(acmeClient.orderFinalize(order.body.finalizeUri, userKeyPair, accountLocation))
+                  .log(name = "ACMEClient#orderFinalize", param = Some(order.body.finalizeUri))
+                order <- EitherT(acmeClient.order(orderLocation, userKeyPair, accountLocation))
+                  .log(name = "ACMEClient#order", param = Some(orderLocation))
+                  .retry(timeout = 1.minutes.some, interval = 3.seconds.some)(
+                    _.map(_.body.status).exists(Set(OrderStatus.valid, OrderStatus.invalid).contains)
+                  )((either, state, retry) => either.log(name = "ACMEClient#order#retry",
+                    param = (state, retry).some))
+                _ <- isTrue(order.body.status === OrderStatus.valid, OrderStatusNotValid(order.body.status)).eLiftET
                 _ <- EitherT(acmeClient.account(userKeyPair, accountLocation)).log(name = "ACMEClient#account")
               yield
                 account

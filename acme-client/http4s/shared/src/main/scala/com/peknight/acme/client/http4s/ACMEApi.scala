@@ -15,7 +15,7 @@ import com.peknight.acme.client.api
 import com.peknight.acme.client.headers.{baseHeaders, getHeaders, postHeaders}
 import com.peknight.acme.directory.Directory
 import com.peknight.acme.error.ACMEError
-import com.peknight.acme.order.{NewOrderHttpResponse, Order}
+import com.peknight.acme.order.{NewOrderHttpResponse, Order, OrderFinalizeResponse}
 import com.peknight.acme.syntax.headers.getNonce
 import com.peknight.cats.effect.ext.Clock
 import com.peknight.cats.instances.time.instant.given
@@ -77,6 +77,9 @@ class ACMEApi[F[_]: Async](
 
   def order(jws: JsonWebSignature, uri: Uri): F[Either[Error, HttpResponse[Order]]] =
     postJws[Order](jws, uri)
+
+  def orderFinalize(jws: JsonWebSignature, uri: Uri): F[Either[Error, HttpResponse[OrderFinalizeResponse]]] =
+    postJws[OrderFinalizeResponse](jws, uri)
 
   def authorization[Challenge](jws: JsonWebSignature, uri: Uri)(using Decoder[Id, Cursor[Json], Challenge])
   : F[Either[Error, Authorization[Challenge]]] =
