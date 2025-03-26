@@ -91,6 +91,7 @@ lazy val acmeClientHttp4s = (crossProject(JSPlatform, JVMPlatform) in file("acme
       "org.http4s" %%% "http4s-client" % http4sVersion,
       "com.peknight" %%% "codec-http4s-circe" % pekCodecVersion,
       "com.peknight" %%% "security-http4s" % pekSecurityVersion,
+      "com.peknight" %%% "logging-core" % pekLoggingVersion,
       "com.peknight" %%% "commons-time" % pekCommonsVersion,
       "com.peknight" %%% "method-core" % pekMethodVersion % Test,
       "com.peknight" %%% "logback-config" % pekLoggingVersion % Test,
@@ -103,7 +104,7 @@ lazy val acmeClientHttp4s = (crossProject(JSPlatform, JVMPlatform) in file("acme
   )
   .jvmSettings(
     libraryDependencies ++= Seq(
-      log4CatsSlf4j % Test,
+      log4CatsSlf4j,
       logbackClassic % Test,
     ),
   )

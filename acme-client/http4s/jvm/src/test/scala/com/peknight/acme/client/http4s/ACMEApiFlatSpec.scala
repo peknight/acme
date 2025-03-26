@@ -74,9 +74,8 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 userKeyPair <- EitherT(secp256r1.generateKeyPair[IO](provider = Some(provider)).asError)
                   .log(name = "ACMEClient#generateUserKeyPair")
                 accountClaims = AccountClaims(termsOfServiceAgreed = Some(true))
-                account <- EitherT(acmeClient.newAccount(accountClaims, userKeyPair))
+                (account, accountLocation) <- EitherT(acmeClient.newAccount(accountClaims, userKeyPair))
                   .log(name = "ACMEClient#newAccount", param = Some(accountClaims))
-                accountLocation = account.location
                 identifiers <- NonEmptyList.of(
                   "*.peknight.com",
                   "*.server.peknight.com",
@@ -84,10 +83,9 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                   "*.cdn.peknight.com"
                 ).traverse(domain => Identifier.dns(domain).eLiftET[IO])
                 orderClaims = OrderClaims(identifiers)
-                order <- EitherT(acmeClient.newOrder(orderClaims, userKeyPair, accountLocation))
+                (order, orderLocation) <- EitherT(acmeClient.newOrder(orderClaims, userKeyPair, accountLocation))
                   .log(name = "ACMEClient#newOrder", param = Some(orderClaims))
-                orderLocation = order.location
-                authorizations <- order.body.authorizations.parTraverse { authorizationUri =>
+                authorizations <- order.authorizations.parTraverse { authorizationUri =>
                   for
                     authorization <- EitherT(acmeClient.authorization(authorizationUri, userKeyPair, accountLocation))
                       .log(name = "ACMEClient#authorization", param = Some(authorizationUri))
@@ -148,7 +146,6 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                   .toRight(OptionEmpty.label("certificateUri")).eLiftET
                 certificates <- EitherT(acmeClient.certificate(certificateUri, userKeyPair, accountLocation))
                   .log(name = "ACMEClient#certificate", param = Some(certificateUri))
-                _ <- EitherT(acmeClient.account(userKeyPair, accountLocation)).log(name = "ACMEClient#account")
               yield
                 account
             eitherT.value

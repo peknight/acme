@@ -9,13 +9,13 @@ import cats.syntax.flatMap.*
 import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.order.*
-import com.peknight.acme.account.{NewAccountHttpResponse, NewAccountResponse}
+import com.peknight.acme.account.Account
 import com.peknight.acme.authorization.Authorization
 import com.peknight.acme.client.api
 import com.peknight.acme.client.headers.{baseHeaders, getHeaders, postHeaders}
 import com.peknight.acme.directory.Directory
 import com.peknight.acme.error.ACMEError
-import com.peknight.acme.order.{NewOrderHttpResponse, Order}
+import com.peknight.acme.order.Order
 import com.peknight.acme.syntax.headers.getNonce
 import com.peknight.cats.effect.ext.Clock
 import com.peknight.cats.instances.time.instant.given
@@ -68,16 +68,14 @@ class ACMEApi[F[_]: Async](
         either
     eitherF.asError.map(_.flatten)
 
-  def newAccount(jws: JsonWebSignature, uri: Uri): F[Either[Error, NewAccountHttpResponse]] =
-    postJwsWithLocation[NewAccountResponse, NewAccountHttpResponse](jws, uri, "accountLocation")(
-      NewAccountHttpResponse.apply
-    )
+  def newAccount(jws: JsonWebSignature, uri: Uri): F[Either[Error, (Account, Uri)]] =
+    postJwsWithLocation[Account](jws, uri, "accountLocation")
 
-  def account(jws: JsonWebSignature, uri: Uri): F[Either[Error, NewAccountResponse]] =
-    postJwsAcceptJson[NewAccountResponse](jws, uri).map(_.map(_.body))
+  def account(jws: JsonWebSignature, uri: Uri): F[Either[Error, Account]] =
+    postJwsAcceptJson[Account](jws, uri).map(_.map(_.body))
 
-  def newOrder(jws: JsonWebSignature, uri: Uri): F[Either[Error, NewOrderHttpResponse]] =
-    postJwsWithLocation[Order, NewOrderHttpResponse](jws, uri, "orderLocation")(NewOrderHttpResponse.apply)
+  def newOrder(jws: JsonWebSignature, uri: Uri): F[Either[Error, (Order, Uri)]] =
+    postJwsWithLocation[Order](jws, uri, "orderLocation")
 
   def order(jws: JsonWebSignature, uri: Uri): F[Either[Error, HttpResponse[Order]]] =
     postJwsAcceptJson[Order](jws, uri)
@@ -136,14 +134,13 @@ class ACMEApi[F[_]: Async](
       case Some(nonce) => nonceRef.set(nonce.some)
       case _ => ().pure[F]
 
-  private def postJwsWithLocation[A, B](jws: JsonWebSignature, uri: Uri, locationLabel: String)
-                                       (f: (A, Uri) => B)
-                                       (using Decoder[Id, Cursor[Json], A]): F[Either[Error, B]] =
+  private def postJwsWithLocation[A](jws: JsonWebSignature, uri: Uri, locationLabel: String)
+                                    (using Decoder[Id, Cursor[Json], A]): F[Either[Error, (A, Uri)]] =
     postJwsAcceptJson[A](jws, uri).map(_.flatMap {
       case HttpResponse(_, headers, body, _) =>
         headers.getLocation(uri)
           .toRight(OptionEmpty.label(locationLabel))
-          .map(location => f(body, location))
+          .map(location => (body, location))
     })
 
   private def postJwsAcceptJson[A](jws: JsonWebSignature, uri: Uri)(using EntityDecoder[F, A])

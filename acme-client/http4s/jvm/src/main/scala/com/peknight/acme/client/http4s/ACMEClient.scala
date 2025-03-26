@@ -9,7 +9,7 @@ import cats.syntax.flatMap.*
 import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.{Id, Show}
-import com.peknight.acme.account.{AccountClaims, NewAccountHttpResponse, NewAccountResponse}
+import com.peknight.acme.account.{Account, AccountClaims}
 import com.peknight.acme.authorization.{Authorization, AuthorizationStatus}
 import com.peknight.acme.challenge.Challenge.`dns-01`
 import com.peknight.acme.challenge.{ChallengeClaims, ChallengeStatus}
@@ -39,6 +39,8 @@ import io.circe.Json
 import org.http4s.Uri
 import org.http4s.client.Client
 import org.http4s.client.dsl.Http4sClientDsl
+import org.typelevel.log4cats.Logger
+import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 import java.security.KeyPair
 import java.security.cert.X509Certificate
@@ -51,7 +53,7 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
   acmeApi: api.ACMEApi[F],
   nonceRef: Ref[F, Option[Base64UrlNoPad]],
   directoryRef: Ref[F, Option[HttpResponse[Directory]]]
-)(using Sync[F], Decoder[Id, Cursor[Json], Challenge]) extends api.ACMEClient[F, Challenge]:
+)(using Sync[F], Logger[F], Decoder[Id, Cursor[Json], Challenge]) extends api.ACMEClient[F, Challenge]:
   def directory: F[Either[Error, Directory]] =
     val eitherT =
       for
@@ -82,21 +84,21 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
         nonce
     eitherT.value
 
-  def newAccount(claims: AccountClaims, keyPair: KeyPair): F[Either[Error, NewAccountHttpResponse]] =
+  def newAccount(claims: AccountClaims, keyPair: KeyPair): F[Either[Error, (Account, Uri)]] =
     val eitherT =
       for
         directory <- EitherT(directory)
-        response <- EitherT(postAsGet[AccountClaims, NewAccountHttpResponse](directory.newAccount, claims, keyPair)(
+        response <- EitherT(postAsGet[AccountClaims, (Account, Uri)](directory.newAccount, claims, keyPair)(
           acmeApi.newAccount
         ))
       yield
         response
     eitherT.value
 
-  def account(keyPair: KeyPair, accountLocation: Uri): F[Either[Error, NewAccountResponse]] =
-    postAsGet[NewAccountResponse](accountLocation, keyPair, accountLocation)(acmeApi.account)
+  def account(keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Account]] =
+    postAsGet[Account](accountLocation, keyPair, accountLocation)(acmeApi.account)
 
-  def newOrder(claims: OrderClaims, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, NewOrderHttpResponse]] =
+  def newOrder(claims: OrderClaims, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, (Order, Uri)]] =
     val eitherT =
       for
         directory <- EitherT(directory)
@@ -215,6 +217,8 @@ object ACMEClient:
       locale <- Sync[F].blocking(Locale.getDefault)
       nonceRef <- Ref[F].of(none[Base64UrlNoPad])
       directoryRef <- Ref[F].of(none[HttpResponse[Directory]])
+      logger <- Slf4jLogger.fromClass[F](ACMEClient.getClass)
+      given Logger[F] = logger
       acmeApi = ACMEApi[F](locale, true, nonceRef, directoryRef)(client)(dsl)
     yield
       new ACMEClient[F, Challenge](directoryUri, directoryMaxAge, acmeApi, nonceRef, directoryRef)

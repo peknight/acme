@@ -9,19 +9,24 @@ import com.peknight.codec.cursor.Cursor
 import com.peknight.codec.http4s.instances.uri.given
 import com.peknight.codec.sum.*
 import com.peknight.codec.{Codec, Decoder, Encoder}
+import com.peknight.jose.jwk.JsonWebKey
 import com.peknight.jose.jws.JsonWebSignature
 import io.circe.{Json, JsonObject}
 import org.http4s.Uri
 
+import java.time.Instant
+
 case class Account(
                     status: AccountStatus,
-                    orders: Uri,
+                    orders: Option[Uri],
                     contact: Option[List[Uri]] = None,
                     termsOfServiceAgreed: Option[Boolean] = None,
                     onlyReturnExisting: Option[Boolean] = None,
                     externalAccountBinding: Option[JsonWebSignature] = None,
                     // RFC9115
                     delegations: Option[Uri] = None,
+                    key: Option[JsonWebKey],
+                    createdAt: Option[Instant],
                     ext: JsonObject = JsonObject.empty
                   ) extends Ext
 object Account:
