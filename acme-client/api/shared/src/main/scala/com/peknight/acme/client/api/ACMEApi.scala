@@ -14,7 +14,7 @@ import com.peknight.jose.jws.JsonWebSignature
 import io.circe.Json
 import org.http4s.Uri
 
-trait ACMEApi[F[_]]:
+trait ACMEApi[F[_]] extends ACMEApiPlatform[F]:
   def directory(uri: Uri): F[Either[Error, Directory]]
   def newNonce(uri: Uri): F[Either[Error, Base64UrlNoPad]]
   def newAccount(jws: JsonWebSignature, uri: Uri): F[Either[Error, NewAccountHttpResponse]]

@@ -13,6 +13,7 @@ import com.peknight.http.HttpResponse
 import org.http4s.Uri
 
 import java.security.KeyPair
+import java.security.cert.X509Certificate
 
 trait ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge]:
   def directory: F[Either[Error, Directory]]
@@ -31,4 +32,6 @@ trait ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge]:
                                                                                (f: (I, C) => F[Either[Error, Option[A]]])
   : F[Either[Error, Option[(I, C, Option[A])]]]
   def getDnsIdentifierAndChallenge(authorization: Authorization[Challenge]): Either[Error, (DNS, `dns-01`)]
+  def certificate(certificateUri: Uri, keyPair: KeyPair, accountLocation: Uri)
+  : F[Either[Error, HttpResponse[List[X509Certificate]]]]
 end ACMEClient

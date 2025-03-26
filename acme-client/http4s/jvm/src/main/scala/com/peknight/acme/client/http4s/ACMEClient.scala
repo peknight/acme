@@ -41,6 +41,7 @@ import org.http4s.client.Client
 import org.http4s.client.dsl.Http4sClientDsl
 
 import java.security.KeyPair
+import java.security.cert.X509Certificate
 import java.util.Locale
 import scala.concurrent.duration.*
 
@@ -174,6 +175,10 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
       challenge <- one(dnsChallenges).label("dnsChallenges")
     yield
       (identifier, challenge)
+
+  def certificate(certificateUri: Uri, keyPair: KeyPair, accountLocation: Uri)
+  : F[Either[Error, HttpResponse[List[X509Certificate]]]] =
+    postAsGet[HttpResponse[List[X509Certificate]]](certificateUri, keyPair, accountLocation)(acmeApi.certificates)
 
   private def postAsGet[A, B](uri: Uri, payload: A, keyPair: KeyPair, accountLocation: Option[Uri] = None)
                              (f: (JsonWebSignature, Uri) => F[Either[Error, B]])

@@ -28,8 +28,11 @@ import com.peknight.error.Error
 import com.peknight.error.option.OptionEmpty
 import com.peknight.error.syntax.applicativeError.asError
 import com.peknight.http.HttpResponse
+import com.peknight.http4s.ext.media.MediaRange.`application/json`
 import com.peknight.http4s.ext.syntax.headers.{getLastModified, getLocation}
 import com.peknight.jose.jws.JsonWebSignature
+import com.peknight.security.http4s.instances.x509Certificate.given
+import com.peknight.security.http4s.media.MediaRange.`application/pem-certificate-chain`
 import io.circe.Json
 import org.http4s.*
 import org.http4s.Method.{GET, HEAD, POST}
@@ -37,6 +40,7 @@ import org.http4s.circe.*
 import org.http4s.client.Client
 import org.http4s.client.dsl.Http4sClientDsl
 
+import java.security.cert.X509Certificate
 import java.time.Instant
 import java.util.Locale
 
@@ -70,24 +74,27 @@ class ACMEApi[F[_]: Async](
     )
 
   def account(jws: JsonWebSignature, uri: Uri): F[Either[Error, NewAccountResponse]] =
-    postJws[NewAccountResponse](jws, uri).map(_.map(_.body))
+    postJwsAcceptJson[NewAccountResponse](jws, uri).map(_.map(_.body))
 
   def newOrder(jws: JsonWebSignature, uri: Uri): F[Either[Error, NewOrderHttpResponse]] =
     postJwsWithLocation[Order, NewOrderHttpResponse](jws, uri, "orderLocation")(NewOrderHttpResponse.apply)
 
   def order(jws: JsonWebSignature, uri: Uri): F[Either[Error, HttpResponse[Order]]] =
-    postJws[Order](jws, uri)
+    postJwsAcceptJson[Order](jws, uri)
 
   def finalizeOrder(jws: JsonWebSignature, uri: Uri): F[Either[Error, HttpResponse[Order]]] =
-    postJws[Order](jws, uri)
+    postJwsAcceptJson[Order](jws, uri)
 
   def authorization[Challenge](jws: JsonWebSignature, uri: Uri)(using Decoder[Id, Cursor[Json], Challenge])
   : F[Either[Error, Authorization[Challenge]]] =
-    postJws[Authorization[Challenge]](jws, uri).map(_.map(_.body))
+    postJwsAcceptJson[Authorization[Challenge]](jws, uri).map(_.map(_.body))
 
   def challenge[Challenge](jws: JsonWebSignature, uri: Uri)(using Decoder[Id, Cursor[Json], Challenge])
   : F[Either[Error, HttpResponse[Challenge]]] =
-    postJws[Challenge](jws, uri)
+    postJwsAcceptJson[Challenge](jws, uri)
+
+  def certificates(jws: JsonWebSignature, uri: Uri): F[Either[Error, HttpResponse[List[X509Certificate]]]] =
+    postJws[List[X509Certificate]](jws, uri, `application/pem-certificate-chain`)
 
   private def get[A](uri: Uri, cacheRef: Ref[F, Option[HttpResponse[A]]], label: String)
                     (using Decoder[Id, Cursor[Json], A])
@@ -132,18 +139,22 @@ class ACMEApi[F[_]: Async](
   private def postJwsWithLocation[A, B](jws: JsonWebSignature, uri: Uri, locationLabel: String)
                                        (f: (A, Uri) => B)
                                        (using Decoder[Id, Cursor[Json], A]): F[Either[Error, B]] =
-    postJws[A](jws, uri).map(_.flatMap {
+    postJwsAcceptJson[A](jws, uri).map(_.flatMap {
       case HttpResponse(_, headers, body, _) =>
         headers.getLocation(uri)
           .toRight(OptionEmpty.label(locationLabel))
           .map(location => f(body, location))
     })
 
-  private def postJws[A](jws: JsonWebSignature, uri: Uri)(using Decoder[Id, Cursor[Json], A])
+  private def postJwsAcceptJson[A](jws: JsonWebSignature, uri: Uri)(using EntityDecoder[F, A])
+  : F[Either[Error, HttpResponse[A]]] =
+    postJws[A](jws, uri, `application/json`)
+
+  private def postJws[A](jws: JsonWebSignature, uri: Uri, acceptMediaRange: MediaRange)(using EntityDecoder[F, A])
   : F[Either[Error, HttpResponse[A]]] =
     val eitherF =
       for
-        headers <- postHeaders[F](locale, compression)
+        headers <- postHeaders[F](locale, compression, acceptMediaRange)
         result <- client.run(POST(jws.asS[Id, Json], uri, headers)).use(response => updateNonce(response).flatMap(_ =>
           if response.status.isSuccess then HttpResponse.fromResponse[F, A](response).map(_.asRight)
           else response.as[ACMEError].map(_.asLeft)

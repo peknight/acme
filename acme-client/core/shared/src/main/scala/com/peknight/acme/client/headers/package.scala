@@ -38,16 +38,16 @@ package object headers:
       Headers(userAgent, acceptCharset, acceptLang) ++ (if compression then Headers(acceptEncoding) else Headers.empty)
     )
 
-  private val accept: Accept = Accept(MediaRangeAndQValue.withDefaultQValue(`application/json`))
+  private def accept(mediaRange: MediaRange): Accept = Accept(MediaRangeAndQValue.withDefaultQValue(mediaRange))
 
   private def ifModifiedSince(lastModified: Instant): `If-Modified-Since` =
     `If-Modified-Since`(HttpDate.unsafeFromInstant(lastModified))
 
   def getHeaders[F[_]: Sync](locale: Locale, compression: Boolean, lastModified: Option[Instant]): F[Headers] =
     baseHeaders(locale, compression).map(
-      _ ++ Headers(accept) ++ lastModified.fold(Headers.empty)(last => Headers(ifModifiedSince(last)))
+      _ ++ Headers(accept(`application/json`)) ++ lastModified.fold(Headers.empty)(last => Headers(ifModifiedSince(last)))
     )
 
-  def postHeaders[F[_]: Sync](locale: Locale, compression: Boolean): F[Headers] =
-    baseHeaders(locale, compression).map(_ ++ Headers(accept, `Content-Type`(`application/jose+json`)))
+  def postHeaders[F[_]: Sync](locale: Locale, compression: Boolean, acceptMediaRange: MediaRange): F[Headers] =
+    baseHeaders(locale, compression).map(_ ++ Headers(accept(acceptMediaRange), `Content-Type`(`application/jose+json`)))
 end headers

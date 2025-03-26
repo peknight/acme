@@ -22,10 +22,11 @@ import com.peknight.acme.order.{FinalizeClaims, OrderClaims, OrderStatus}
 import com.peknight.cats.ext.syntax.eitherT.{eLiftET, rLiftET}
 import com.peknight.cloudflare.dns.record.DNSRecordId
 import com.peknight.cloudflare.dns.record.http4s.DNSRecordApi
-import com.peknight.cloudflare.test.{PekToken, PekZone}
+import com.peknight.cloudflare.test.{pekToken, pekZoneId}
 import com.peknight.codec.Encoder
 import com.peknight.codec.syntax.encoder.asS
 import com.peknight.error.Error
+import com.peknight.error.option.OptionEmpty
 import com.peknight.error.syntax.applicativeError.asError
 import com.peknight.http.HttpResponse
 import com.peknight.http.method.retry.syntax.eitherT.retry
@@ -68,8 +69,8 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
             val eitherT =
               for
                 acmeClient <- EitherT(ACMEClient[IO, Challenge](client, stagingDirectory)(dsl.io).asError)
-                given DNSRecordApi[IO] = DNSRecordApi[IO](PekToken.token)(client)(dsl.io)
-                dnsChallengeClient <- EitherT(DNSChallengeClient[IO](PekZone.zoneId).asError)
+                given DNSRecordApi[IO] = DNSRecordApi[IO](pekToken)(client)(dsl.io)
+                dnsChallengeClient <- EitherT(DNSChallengeClient[IO](pekZoneId).asError)
                 userKeyPair <- EitherT(secp256r1.generateKeyPair[IO](provider = Some(provider)).asError)
                   .log(name = "ACMEClient#generateUserKeyPair")
                 accountClaims = AccountClaims(termsOfServiceAgreed = Some(true))
@@ -143,6 +144,10 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                   )((either, state, retry) => either.log(name = "ACMEClient#order#retry",
                     param = (state, retry).some))
                 _ <- isTrue(order.body.status === OrderStatus.valid, OrderStatusNotValid(order.body.status)).eLiftET
+                certificateUri <- order.body.starCertificate.orElse(order.body.certificate)
+                  .toRight(OptionEmpty.label("certificateUri")).eLiftET
+                certificates <- EitherT(acmeClient.certificate(certificateUri, userKeyPair, accountLocation))
+                  .log(name = "ACMEClient#certificate", param = Some(certificateUri))
                 _ <- EitherT(acmeClient.account(userKeyPair, accountLocation)).log(name = "ACMEClient#account")
               yield
                 account
