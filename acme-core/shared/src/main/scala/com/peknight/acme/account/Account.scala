@@ -25,8 +25,8 @@ case class Account(
                     externalAccountBinding: Option[JsonWebSignature] = None,
                     // RFC9115
                     delegations: Option[Uri] = None,
-                    key: Option[JsonWebKey],
-                    createdAt: Option[Instant],
+                    key: Option[JsonWebKey] = None,
+                    createdAt: Option[Instant] = None,
                     ext: JsonObject = JsonObject.empty
                   ) extends Ext
 object Account:
