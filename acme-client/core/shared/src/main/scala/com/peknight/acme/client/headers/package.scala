@@ -3,8 +3,8 @@ package com.peknight.acme.client
 import cats.data.NonEmptyList
 import cats.effect.Sync
 import cats.syntax.functor.*
-import com.peknight.http4s.ext.MediaRange.`application/json`
-import com.peknight.jose.http4s.MediaRange.`application/jose+json`
+import com.peknight.http4s.ext.media.MediaRange.`application/json`
+import com.peknight.jose.http4s.media.MediaRange.`application/jose+json`
 import org.http4s.*
 import org.http4s.headers.*
 
