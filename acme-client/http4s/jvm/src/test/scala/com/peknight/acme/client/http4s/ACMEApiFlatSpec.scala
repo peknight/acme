@@ -1,8 +1,9 @@
 package com.peknight.acme.client.http4s
 
 import cats.data.{EitherT, NonEmptyList}
-import cats.effect.IO
+import cats.effect.{IO, Resource}
 import cats.effect.testing.scalatest.AsyncIOSpec
+import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*
 import cats.{Id, Show}
@@ -89,14 +90,21 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                   for
                     authorization <- EitherT(acmeClient.authorization(authorizationUri, userKeyPair, accountLocation))
                       .log(name = "ACMEClient#authorization", param = Some(authorizationUri))
-                    opt <- EitherT(acmeClient.challenge[DNS, `dns-01`, DNSRecordId](authorization)(
-                      acmeClient.getDnsIdentifierAndChallenge(authorization)
-                    )(dnsChallengeClient.createDNSRecord(_, _, userKeyPair.getPublic)))
-                      .log(name = "ACMEClient#challenge", param = Some(authorization))
-                    _ <- EitherT(IO.sleep(2.minutes).asError)
-                    authorization <- opt match
+                    authorization <- Resource.make[[X] =>> EitherT[IO, Error, X], Option[(DNS, `dns-01`, Option[DNSRecordId])]](
+                      EitherT(acmeClient.challenge[DNS, `dns-01`, DNSRecordId](authorization)(
+                        acmeClient.getDnsIdentifierAndChallenge(authorization)
+                      )(dnsChallengeClient.createDNSRecord(_, _, userKeyPair.getPublic)))
+                        .log(name = "ACMEClient#challenge", param = Some(authorization))
+                    ){
+                      case Some((identifier, challenge, dnsRecordId)) =>
+                        EitherT(dnsChallengeClient.cleanDNSRecord(identifier, challenge, dnsRecordId))
+                          .log(name = "ACMEClient#cleanDNSRecord", param = Some((identifier, challenge, dnsRecordId)))
+                          .as(())
+                      case None => EitherT.pure(())
+                    }.use {
                       case Some((identifier, challenge, dnsRecordId)) =>
                         for
+                          _ <- EitherT(IO.sleep(2.minutes).asError)
                           c <- EitherT(acmeClient.updateChallenge(challenge.url, userKeyPair, accountLocation))
                             .log(name = "ACMEClient#updateChallenge", param = Some(challenge.url))
                             .map(_.some)
@@ -114,6 +122,7 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                         yield
                           authorization
                       case None => authorization.rLiftET[IO, Error]
+                    }
                     _ <- isTrue(authorization.status === AuthorizationStatus.valid,
                       AuthorizationStatusNotValid(authorization.status)).eLiftET
                   yield
