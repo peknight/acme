@@ -90,6 +90,7 @@ lazy val acmeClientHttp4s = (crossProject(JSPlatform, JVMPlatform) in file("acme
     libraryDependencies ++= Seq(
       "org.http4s" %%% "http4s-client" % http4sVersion,
       "com.peknight" %%% "codec-http4s-circe" % pekCodecVersion,
+      "com.peknight" %%% "security-http4s" % pekSecurityVersion,
       "com.peknight" %%% "commons-time" % pekCommonsVersion,
       "com.peknight" %%% "method-core" % pekMethodVersion % Test,
       "com.peknight" %%% "logback-config" % pekLoggingVersion % Test,
