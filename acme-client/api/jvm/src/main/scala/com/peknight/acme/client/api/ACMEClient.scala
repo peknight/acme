@@ -30,9 +30,9 @@ trait ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge]:
   : F[Either[Error, Authorization[Challenge]]]
   def queryChallenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, HttpResponse[Challenge]]]
   def updateChallenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Challenge]]
-  def challenge[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, A](authorization: Authorization[Challenge], publicKey: PublicKey)
-                                                                               (ci: Authorization[Challenge] => Either[Error, (I, C)])
-                                                                               (f: (I, C, PublicKey) => F[Either[Error, Option[A]]])
+  def acceptChallenge[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, A](authorization: Authorization[Challenge], publicKey: PublicKey)
+                                                                                     (ci: Authorization[Challenge] => Either[Error, (I, C)])
+                                                                                     (f: (I, C, PublicKey) => F[Either[Error, Option[A]]])
   : F[Either[Error, Option[(I, C, Option[A])]]]
   def getDnsIdentifierAndChallenge(authorization: Authorization[Challenge]): Either[Error, (DNS, `dns-01`)]
   def certificate(certificateUri: Uri, keyPair: KeyPair, accountLocation: Uri)

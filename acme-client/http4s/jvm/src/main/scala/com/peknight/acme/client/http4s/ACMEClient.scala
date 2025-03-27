@@ -148,10 +148,10 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
                      (timeout: FiniteDuration = 1.minutes, interval: FiniteDuration = 3.seconds,
                       statusSet: Set[OrderStatus]): F[Either[Error, Order]] =
     queryOrder(orderLocation, keyPair, accountLocation)
-      .log(name = "ACMEClient#order", param = Some(orderLocation))
+      .log(name = "ACMEClient#queryOrder", param = Some(orderLocation))
       .retry(timeout = timeout.some, interval = interval.some)(
         _.map(_.body.status).exists(statusSet.contains)
-      )((either, state, retry) => either.log(name = "ACMEClient#order#retry", param = (state, retry).some))
+      )((either, state, retry) => either.log(name = "ACMEClient#queryOrder#retry", param = (state, retry).some))
       .map(_.map(_.body))
 
   def finalizeOrder(finalizeUri: Uri, claims: FinalizeClaims, keyPair: KeyPair, accountLocation: Uri)
@@ -181,9 +181,9 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
       acmeApi.challenge[Challenge]
     ).map(_.map(_.body))
 
-  def challenge[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, A](authorization: Authorization[Challenge], publicKey: PublicKey)
-                                                                               (ic: Authorization[Challenge] => Either[Error, (I, C)])
-                                                                               (prepare: (I, C, PublicKey) => F[Either[Error, Option[A]]])
+  def acceptChallenge[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, A](authorization: Authorization[Challenge], publicKey: PublicKey)
+                                                                                     (ic: Authorization[Challenge] => Either[Error, (I, C)])
+                                                                                     (prepare: (I, C, PublicKey) => F[Either[Error, Option[A]]])
   : F[Either[Error, Option[(I, C, Option[A])]]] =
     if authorization.status === AuthorizationStatus.valid then
       none[(I, C, Option[A])].asRight[Error].pure[F]
@@ -193,7 +193,7 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
           if challenge.status === ChallengeStatus.valid then none[(I, C, Option[A])].asRight[Error].pure[F]
           else prepare(identifier, challenge, publicKey).map(_.map((identifier, challenge, _).some))
         case Left(error) => error.asLeft[Option[(I, C, Option[A])]].pure[F]
-  end challenge
+  end acceptChallenge
 
   def getDnsIdentifierAndChallenge(authorization: Authorization[Challenge]): Either[Error, (DNS, `dns-01`)] =
     for
@@ -229,18 +229,18 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
       for
         accountKeyPair <- EitherT(accountKeyPair).log(name = "ACMEClient#accountKeyPair")
         accountClaims = AccountClaims(termsOfServiceAgreed = Some(true))
-        (a, accountLocation) <- EitherT(newAccount(accountClaims, accountKeyPair))
+        (account, accountLocation) <- EitherT(newAccount(accountClaims, accountKeyPair))
           .log(name = "ACMEClient#newAccount", param = Some(accountClaims))
         orderClaims = OrderClaims(identifiers)
-        (o, orderLocation) <- EitherT(newOrder(orderClaims, accountKeyPair, accountLocation))
+        (order, orderLocation) <- EitherT(newOrder(orderClaims, accountKeyPair, accountLocation))
           .log(name = "ACMEClient#newOrder", param = Some(orderClaims))
-        authorizations <- o.authorizations.parTraverse { authorizationUri =>
+        authorizations <- order.authorizations.parTraverse { authorizationUri =>
           for
-            auth<- EitherT(queryAuthorization(authorizationUri, accountKeyPair, accountLocation))
-              .log(name = "ACMEClient#authorization", param = Some(authorizationUri))
-            auth<- Resource.make[[X] =>> EitherT[F, Error, X], Option[(I, C, Option[A])]](
-              EitherT(challenge[I, C, A](auth, accountKeyPair.getPublic)(ic)(prepare))
-                .log(name = "ACMEClient#challenge", param = Some(auth))
+            authorization <- EitherT(queryAuthorization(authorizationUri, accountKeyPair, accountLocation))
+              .log(name = "ACMEClient#queryAuthorization", param = Some(authorizationUri))
+            authorization <- Resource.make[[X] =>> EitherT[F, Error, X], Option[(I, C, Option[A])]](
+              EitherT(acceptChallenge[I, C, A](authorization, accountKeyPair.getPublic)(ic)(prepare))
+                .log(name = "ACMEClient#acceptChallenge", param = Some(authorization))
             ){
               case Some((identifier, challenge, a)) =>
                 EitherT(clean(identifier, challenge, a))
@@ -250,35 +250,37 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
               case Some((identifier, challenge, a)) =>
                 for
                   _ <- EitherT(GenTemporal[F].sleep(sleepAfterPrepare).asError)
-                  c <- EitherT(updateChallenge(challenge.url, accountKeyPair, accountLocation))
+                  challenge <- EitherT(updateChallenge(challenge.url, accountKeyPair, accountLocation))
                     .log(name = "ACMEClient#updateChallenge", param = Some(challenge.url))
-                  c <- EitherT(queryChallengeRetry(challenge.url, accountKeyPair, accountLocation)(
+                  challenge <- EitherT(queryChallengeRetry(challenge.url, accountKeyPair, accountLocation)(
                     queryChallengeTimeout, queryChallengeInterval))
-                  c <- isTrue(c.status === ChallengeStatus.valid, ChallengeStatusNotValid(c.status).value(c)).eLiftET
-                  auth<- EitherT(queryAuthorization(authorizationUri, accountKeyPair, accountLocation))
-                    .log(name = "ACMEClient#authorization", param = Some(authorizationUri))
+                  challenge <- isTrue(challenge.status === ChallengeStatus.valid,
+                    ChallengeStatusNotValid(challenge.status).value(challenge)).eLiftET
+                  authorization <- EitherT(queryAuthorization(authorizationUri, accountKeyPair, accountLocation))
+                    .log(name = "ACMEClient#queryAuthorization", param = Some(authorizationUri))
                 yield
-                  auth
-              case None => auth.rLiftET[F, Error]
+                  authorization
+              case None => authorization.rLiftET[F, Error]
             }
-            _ <- isTrue(auth.status === AuthorizationStatus.valid, AuthorizationStatusNotValid(auth.status)).eLiftET
+            _ <- isTrue(authorization.status === AuthorizationStatus.valid,
+              AuthorizationStatusNotValid(authorization.status)).eLiftET
           yield
-            auth
+            authorization
         }
-        o <- EitherT(queryOrderRetry(orderLocation, accountKeyPair, accountLocation)(orderTimeout, orderInterval,
+        order <- EitherT(queryOrderRetry(orderLocation, accountKeyPair, accountLocation)(orderTimeout, orderInterval,
           Set(OrderStatus.ready, OrderStatus.valid, OrderStatus.invalid)))
-        _ <- isTrue(o.status === OrderStatus.ready, OrderStatusNotReady(o.status)).eLiftET
-        generalNames <- o.toGeneralNames.eLiftET
+        _ <- isTrue(order.status === OrderStatus.ready, OrderStatusNotReady(order.status)).eLiftET
+        generalNames <- order.toGeneralNames.eLiftET
         domainKeyPair <- EitherT(domainKeyPair).log(name = "ACMEClient#domainKeyPair")
         csr <- EitherT(PKCS10CertificationRequest.certificateSigningRequest[F](generalNames, domainKeyPair))
           .log(name = "ACMEClient#certificateSigningRequest", param = Some(generalNames))
         finalizeClaims = FinalizeClaims(csr)
-        o <- EitherT(finalizeOrder(o.finalizeUri, finalizeClaims, accountKeyPair, accountLocation))
-          .log(name = "ACMEClient#finalizeOrder", param = Some(o.finalizeUri))
-        o <- EitherT(queryOrderRetry(orderLocation, accountKeyPair, accountLocation)(orderTimeout, orderInterval,
+        order <- EitherT(finalizeOrder(order.finalizeUri, finalizeClaims, accountKeyPair, accountLocation))
+          .log(name = "ACMEClient#finalizeOrder", param = Some(order.finalizeUri))
+        order <- EitherT(queryOrderRetry(orderLocation, accountKeyPair, accountLocation)(orderTimeout, orderInterval,
           Set(OrderStatus.valid, OrderStatus.invalid)))
-        _ <- isTrue(o.status === OrderStatus.valid, OrderStatusNotValid(o.status)).eLiftET
-        certificateUri <- o.starCertificate.orElse(o.certificate).toRight(OptionEmpty.label("certificateUri")).eLiftET
+        _ <- isTrue(order.status === OrderStatus.valid, OrderStatusNotValid(order.status)).eLiftET
+        certificateUri <- order.starCertificate.orElse(order.certificate).toRight(OptionEmpty.label("certificateUri")).eLiftET
         certificates <- EitherT(certificate(certificateUri, accountKeyPair, accountLocation))
           .log(name = "ACMEClient#certificate", param = Some(certificateUri))
       yield
