@@ -21,7 +21,7 @@ trait ACMEApi[F[_]] extends ACMEApiPlatform[F]:
   def account(jws: JsonWebSignature, uri: Uri): F[Either[Error, Account]]
   def newOrder(jws: JsonWebSignature, uri: Uri): F[Either[Error, (Order, Uri)]]
   def order(jws: JsonWebSignature, uri: Uri): F[Either[Error, HttpResponse[Order]]]
-  def finalizeOrder(jws: JsonWebSignature, uri: Uri): F[Either[Error, HttpResponse[Order]]]
+  def finalizeOrder(jws: JsonWebSignature, uri: Uri): F[Either[Error, Order]]
   def authorization[Challenge](jws: JsonWebSignature, uri: Uri)(using Decoder[Id, Cursor[Json], Challenge])
   : F[Either[Error, Authorization[Challenge]]]
   def challenge[Challenge](jws: JsonWebSignature, uri: Uri)(using Decoder[Id, Cursor[Json], Challenge])
