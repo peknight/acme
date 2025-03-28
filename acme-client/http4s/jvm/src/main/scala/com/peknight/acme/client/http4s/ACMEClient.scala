@@ -49,6 +49,7 @@ import org.http4s.client.Client
 import org.http4s.client.dsl.Http4sClientDsl
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
+import scodec.bits.ByteVector
 
 import java.security.cert.X509Certificate
 import java.security.{KeyPair, PublicKey}
@@ -274,6 +275,7 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
         generalNames <- order.toGeneralNames.eLiftET
         domainKeyPair <- EitherT(domainKeyPair).log(name = "ACMEClient#domainKeyPair")
         csr <- EitherT(PKCS10CertificationRequest.certificateSigningRequest[F](generalNames, domainKeyPair))
+          .map(csr => Base64UrlNoPad.fromByteVector(ByteVector(csr.getEncoded)))
           .log(name = "ACMEClient#certificateSigningRequest", param = Some(generalNames))
         finalizeClaims = FinalizeClaims(csr)
         order <- EitherT(finalizeOrder(order.finalizeUri, finalizeClaims, accountKeyPair, accountLocation))
