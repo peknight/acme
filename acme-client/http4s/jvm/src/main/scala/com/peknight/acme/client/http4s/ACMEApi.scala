@@ -1,6 +1,7 @@
 package com.peknight.acme.client.http4s
 
 import cats.Id
+import cats.data.NonEmptyList
 import cats.effect.{Async, Ref}
 import cats.syntax.applicative.*
 import cats.syntax.either.*
@@ -29,10 +30,11 @@ import com.peknight.error.option.OptionEmpty
 import com.peknight.error.syntax.applicativeError.asError
 import com.peknight.http.HttpResponse
 import com.peknight.http4s.ext.media.MediaRange.`application/json`
-import com.peknight.http4s.ext.syntax.headers.{getLastModified, getLocation}
+import com.peknight.http4s.ext.syntax.headers.{getLastModified, getLinks, getLocation}
 import com.peknight.jose.jws.JsonWebSignature
 import com.peknight.security.http4s.instances.x509Certificate.given
 import com.peknight.security.http4s.media.MediaRange.`application/pem-certificate-chain`
+import com.peknight.validation.collection.list.either.nonEmpty
 import io.circe.Json
 import org.http4s.*
 import org.http4s.Method.{GET, HEAD, POST}
@@ -91,8 +93,10 @@ class ACMEApi[F[_]: Async](
   : F[Either[Error, HttpResponse[Challenge]]] =
     postJwsAcceptJson[Challenge](jws, uri)
 
-  def certificates(jws: JsonWebSignature, uri: Uri): F[Either[Error, HttpResponse[List[X509Certificate]]]] =
-    postJws[List[X509Certificate]](jws, uri, `application/pem-certificate-chain`)
+  def certificate(jws: JsonWebSignature, uri: Uri): F[Either[Error, (NonEmptyList[X509Certificate], Option[List[Uri]])]] =
+    postJws[List[X509Certificate]](jws, uri, `application/pem-certificate-chain`).map(_.flatMap { response =>
+      nonEmpty(response.body).map(certificates => (certificates, response.headers.getLinks("alternate")))
+    })
 
   private def get[A](uri: Uri, cacheRef: Ref[F, Option[HttpResponse[A]]], label: String)
                     (using Decoder[Id, Cursor[Json], A])

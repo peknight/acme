@@ -64,8 +64,8 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 ).traverse(domain => Identifier.dns(domain).eLiftET[IO])
                 certificates <- EitherT(acmeClient.fetchCertificates[DNS, `dns-01`, DNSRecordId](identifiers,
                   secp256r1.generateKeyPair[IO](provider = Some(provider)).asError,
-                  RSA.keySizeGenerateKeyPair[IO](4096).asError
-                )(acmeClient.getDnsIdentifierAndChallenge)(dnsChallengeClient.createDNSRecord)(
+                  RSA.keySizeGenerateKeyPair[IO](4096).asError)(
+                  acmeClient.getDnsIdentifierAndChallenge)(dnsChallengeClient.createDNSRecord)(
                   dnsChallengeClient.cleanDNSRecord(_, _, _).map(_.as(()))
                 ))
               yield

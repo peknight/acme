@@ -201,14 +201,15 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
       dnsChallenges: List[`dns-01`] = authorization.challenges.collect {
         case challenge: `dns-01` => challenge
       }
-      given Show[`dns-01`] = Show.fromToString[`dns-01`]
       challenge <- one(dnsChallenges).label("dnsChallenges")
     yield
       (identifier, challenge)
 
-  def certificate(certificateUri: Uri, keyPair: KeyPair, accountLocation: Uri)
-  : F[Either[Error, HttpResponse[List[X509Certificate]]]] =
-    postAsGet[HttpResponse[List[X509Certificate]]](certificateUri, keyPair, accountLocation)(acmeApi.certificates)
+  def downloadCertificate(certificateUri: Uri, keyPair: KeyPair, accountLocation: Uri)
+  : F[Either[Error, (NonEmptyList[X509Certificate], Option[List[Uri]])]] =
+    postAsGet[(NonEmptyList[X509Certificate], Option[List[Uri]])](certificateUri, keyPair, accountLocation)(
+      acmeApi.certificate
+    )
 
   def fetchCertificates[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, A](
     identifiers: NonEmptyList[Identifier],
@@ -221,7 +222,7 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
     orderInterval: FiniteDuration = 3.seconds
   )(ic: Authorization[Challenge] => Either[Error, (I, C)]
   )(prepare: (I, C, PublicKey) => F[Either[Error, Option[A]]]
-  )(clean: (I, C, Option[A]) => F[Either[Error, Unit]]): F[Either[Error, HttpResponse[List[X509Certificate]]]] =
+  )(clean: (I, C, Option[A]) => F[Either[Error, Unit]]): F[Either[Error, NonEmptyList[X509Certificate]]] =
     given Show[KeyPair] = Show.show(keyPair =>
       JsonWebKey.fromKeyPair(keyPair).map(_.asS[Id, Json].deepDropNullValues.noSpaces).getOrElse(keyPair.toString)
     )
@@ -281,8 +282,8 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
           Set(OrderStatus.valid, OrderStatus.invalid)))
         _ <- isTrue(order.status === OrderStatus.valid, OrderStatusNotValid(order.status)).eLiftET
         certificateUri <- order.starCertificate.orElse(order.certificate).toRight(OptionEmpty.label("certificateUri")).eLiftET
-        certificates <- EitherT(certificate(certificateUri, accountKeyPair, accountLocation))
-          .log(name = "ACMEClient#certificate", param = Some(certificateUri))
+        (certificates, alternates) <- EitherT(downloadCertificate(certificateUri, accountKeyPair, accountLocation))
+          .log(name = "ACMEClient#downloadCertificate", param = Some(certificateUri))
       yield
         certificates
     eitherT.value
