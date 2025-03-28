@@ -4,7 +4,6 @@ import cats.data.{EitherT, NonEmptyList}
 import cats.effect.IO
 import cats.effect.testing.scalatest.AsyncIOSpec
 import cats.syntax.functor.*
-import cats.{Id, Show}
 import com.peknight.acme.challenge.Challenge.`dns-01`
 import com.peknight.acme.client.cloudflare.DNSChallengeClient
 import com.peknight.acme.client.letsencrypt.challenge.Challenge
@@ -16,15 +15,11 @@ import com.peknight.cats.ext.syntax.eitherT.eLiftET
 import com.peknight.cloudflare.dns.record.DNSRecordId
 import com.peknight.cloudflare.dns.record.http4s.DNSRecordApi
 import com.peknight.cloudflare.test.{pekToken, pekZoneId}
-import com.peknight.codec.Encoder
-import com.peknight.codec.syntax.encoder.asS
 import com.peknight.error.syntax.applicativeError.asError
-import com.peknight.jose.jwk.JsonWebKey
 import com.peknight.security.Security
 import com.peknight.security.bouncycastle.jce.provider.BouncyCastleProvider
 import com.peknight.security.cipher.RSA
 import com.peknight.security.ecc.sec.secp256r1
-import io.circe.Json
 import org.http4s.*
 import org.http4s.client.dsl
 import org.http4s.ember.client.EmberClientBuilder
@@ -32,17 +27,11 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
-import java.security.KeyPair
 import scala.concurrent.duration.*
 
 class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
 
   "ACME Api Directory" should "succeed" in {
-    def showJson[A](using Encoder[Id, Json, A]): Show[A] = Show.show(a => a.asS[Id, Json].deepDropNullValues.noSpaces)
-    given [A]: Show[A] = Show.fromToString[A]
-    given Show[KeyPair] = Show.show(keyPair =>
-      JsonWebKey.fromKeyPair(keyPair).map(_.asS[Id, Json].deepDropNullValues.noSpaces).getOrElse(keyPair.toString)
-    )
     val run =
       for
         provider <- BouncyCastleProvider[IO]
