@@ -9,7 +9,7 @@ import cats.syntax.flatMap.*
 import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*
-import cats.{Id, Show}
+import cats.{Id, Parallel, Show}
 import com.peknight.acme.account.{Account, AccountClaims}
 import com.peknight.acme.authorization.{Authorization, AuthorizationStatus}
 import com.peknight.acme.bouncycastle.pkcs.PKCS10CertificationRequest
@@ -62,7 +62,7 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
   acmeApi: api.ACMEApi[F],
   nonceRef: Ref[F, Option[Base64UrlNoPad]],
   directoryRef: Ref[F, Option[HttpResponse[Directory]]]
-)(using Async[F], Logger[F], Decoder[Id, Cursor[Json], Challenge]) extends api.ACMEClient[F, Challenge]:
+)(using Async[F], Parallel[F], Logger[F], Decoder[Id, Cursor[Json], Challenge]) extends api.ACMEClient[F, Challenge]:
   private given [X]: Show[X] = Show.fromToString[X]
 
   def directory: F[Either[Error, Directory]] =
@@ -319,7 +319,7 @@ object ACMEClient:
   def apply[F[_], Challenge <: com.peknight.acme.challenge.Challenge](client: Client[F], directoryUri: Uri,
                                                                       directoryMaxAge: FiniteDuration = 10.minutes)
                                                                      (dsl: Http4sClientDsl[F])
-                                                                     (using Async[F], Decoder[Id, Cursor[Json], Challenge])
+                                                                     (using Async[F], Parallel[F], Decoder[Id, Cursor[Json], Challenge])
   : F[api.ACMEClient[F, Challenge]] =
     for
       locale <- Sync[F].blocking(Locale.getDefault)
