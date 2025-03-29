@@ -19,6 +19,7 @@ trait ACMEApi[F[_]] extends ACMEApiPlatform[F]:
   def newNonce(uri: Uri): F[Either[Error, Base64UrlNoPad]]
   def newAccount(jws: JsonWebSignature, uri: Uri): F[Either[Error, (Account, Uri)]]
   def account(jws: JsonWebSignature, uri: Uri): F[Either[Error, Account]]
+  def keyChange(jws: JsonWebSignature, uri: Uri): F[Either[Error, Account]]
   def newOrder(jws: JsonWebSignature, uri: Uri): F[Either[Error, (Order, Uri)]]
   def order(jws: JsonWebSignature, uri: Uri): F[Either[Error, HttpResponse[Order]]]
   def finalizeOrder(jws: JsonWebSignature, uri: Uri): F[Either[Error, Order]]

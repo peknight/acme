@@ -10,7 +10,7 @@ import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*
 import cats.{Id, Parallel, Show}
-import com.peknight.acme.account.{Account, AccountClaims}
+import com.peknight.acme.account.{Account, AccountClaims, KeyChangeClaims}
 import com.peknight.acme.authorization.{Authorization, AuthorizationStatus}
 import com.peknight.acme.bouncycastle.pkcs.PKCS10CertificationRequest
 import com.peknight.acme.certificate.RevokeClaims
@@ -115,6 +115,19 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
   def updateAccount(claims: AccountClaims, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Account]] =
     postAsGet[AccountClaims, Account](accountLocation, claims, keyPair, accountLocation.some)(acmeApi.account)
 
+  def keyChange(newKeyPair: KeyPair, oldKeyPair: KeyPair, accountLocation: Uri): F[Either[Error, Account]] =
+    val eitherT =
+      for
+        directory <- EitherT(directory)
+        oldKey <- JsonWebKey.fromPublicKey(oldKeyPair.getPublic).eLiftET[F]
+        claims = KeyChangeClaims(accountLocation, oldKey)
+        innerJws <- EitherT(signJson[F, KeyChangeClaims](directory.keyChange, claims, newKeyPair))
+        account <- EitherT(postAsGet[JsonWebSignature, Account](directory.keyChange, innerJws, oldKeyPair,
+          accountLocation.some)(acmeApi.keyChange))
+      yield
+        account
+    eitherT.value
+
   def newOrder(claims: OrderClaims, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, (Order, Uri)]] =
     val eitherT =
       for
@@ -140,10 +153,8 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
           if hasAncestorDomain && !directory.meta.flatMap(_.subdomainAuthAllowed).getOrElse(false) then
             AncestorDomainNotSupported.lLiftET[F, Unit]
           else ().rLiftET
-        nonce <- EitherT(nonce)
-        jws <- EitherT(signJson[F, OrderClaims](directory.newOrder, claims, keyPair, Some(nonce),
-          Some(KeyId(accountLocation.toString))))
-        response <- EitherT(acmeApi.newOrder(jws, directory.newOrder))
+        response <- EitherT(postAsGet[OrderClaims, (Order, Uri)](directory.newOrder, claims, keyPair,
+          accountLocation.some)(acmeApi.newOrder))
       yield
         response
     eitherT.value
@@ -151,9 +162,9 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
   def queryOrder(orderLocation: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, HttpResponse[Order]]] =
     postAsGet[HttpResponse[Order]](orderLocation, keyPair, accountLocation)(acmeApi.order)
 
-  def queryOrderRetry(orderLocation: Uri, keyPair: KeyPair, accountLocation: Uri)
-                     (timeout: FiniteDuration = 1.minutes, interval: FiniteDuration = 3.seconds,
-                      statusSet: Set[OrderStatus]): F[Either[Error, Order]] =
+  private def queryOrderRetry(orderLocation: Uri, keyPair: KeyPair, accountLocation: Uri)
+                             (timeout: FiniteDuration = 1.minutes, interval: FiniteDuration = 3.seconds,
+                              statusSet: Set[OrderStatus]): F[Either[Error, Order]] =
     queryOrder(orderLocation, keyPair, accountLocation)
       .log(name = "ACMEClient#queryOrder", param = Some(orderLocation))
       .retry(timeout = timeout.some, interval = interval.some)(
@@ -172,8 +183,8 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
   def queryChallenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, HttpResponse[Challenge]]] =
     postAsGet[HttpResponse[Challenge]](challengeUri, keyPair, accountLocation)(acmeApi.challenge[Challenge])
 
-  def queryChallengeRetry(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri)
-                         (timeout: FiniteDuration = 1.minutes, interval: FiniteDuration = 3.seconds)
+  private def queryChallengeRetry(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri)
+                                 (timeout: FiniteDuration = 1.minutes, interval: FiniteDuration = 3.seconds)
   : F[Either[Error, Challenge]] =
     queryChallenge(challengeUri, keyPair, accountLocation)
       .log(name = "ACMEClient#queryChallenge", param = Some(challengeUri))

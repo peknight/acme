@@ -76,6 +76,9 @@ class ACMEApi[F[_]: Async](
   def account(jws: JsonWebSignature, uri: Uri): F[Either[Error, Account]] =
     postJwsAcceptJson[Account](jws, uri).map(_.map(_.body))
 
+  def keyChange(jws: JsonWebSignature, uri: Uri): F[Either[Error, Account]] =
+    postJwsAcceptJson[Account](jws, uri).map(_.map(_.body))
+
   def newOrder(jws: JsonWebSignature, uri: Uri): F[Either[Error, (Order, Uri)]] =
     postJwsWithLocation[Order](jws, uri, "orderLocation")
 

@@ -25,6 +25,7 @@ trait ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge]:
   def newAccount(claims: AccountClaims, keyPair: KeyPair): F[Either[Error, (Account, Uri)]]
   def queryAccount(keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Account]]
   def updateAccount(claims: AccountClaims, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Account]]
+  def keyChange(newKeyPair: KeyPair, oldKeyPair: KeyPair, accountLocation: Uri): F[Either[Error, Account]]
   def newOrder(claims: OrderClaims, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, (Order, Uri)]]
   def queryOrder(orderLocation: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, HttpResponse[Order]]]
   def finalizeOrder(finalizeUri: Uri, claims: FinalizeClaims, keyPair: KeyPair, accountLocation: Uri)
