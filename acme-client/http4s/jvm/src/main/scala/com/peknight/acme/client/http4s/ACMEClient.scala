@@ -10,8 +10,8 @@ import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*
 import cats.{Id, Parallel, Show}
-import com.peknight.acme.account.{Account, AccountClaims, KeyChangeClaims}
-import com.peknight.acme.authorization.{Authorization, AuthorizationStatus}
+import com.peknight.acme.account.{Account, AccountClaims, AccountStatus, KeyChangeClaims}
+import com.peknight.acme.authorization.{Authorization, AuthorizationClaims, AuthorizationStatus, PreAuthorizationClaims}
 import com.peknight.acme.bouncycastle.pkcs.PKCS10CertificationRequest
 import com.peknight.acme.certificate.RevokeClaims
 import com.peknight.acme.challenge.Challenge.`dns-01`
@@ -115,6 +115,9 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
   def updateAccount(claims: AccountClaims, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Account]] =
     postAsGet[AccountClaims, Account](accountLocation, claims, keyPair, accountLocation.some)(acmeApi.account)
 
+  def deactivateAccount(keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Account]] =
+    updateAccount(AccountClaims(status = AccountStatus.deactivated.some), keyPair, accountLocation)
+
   def keyChange(newKeyPair: KeyPair, oldKeyPair: KeyPair, accountLocation: Uri): F[Either[Error, Account]] =
     val eitherT =
       for
@@ -179,6 +182,25 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
   def queryAuthorization(authorizationUri: Uri, keyPair: KeyPair, accountLocation: Uri)
   : F[Either[Error, Authorization[Challenge]]] =
     postAsGet[Authorization[Challenge]](authorizationUri, keyPair, accountLocation)(acmeApi.authorization[Challenge])
+
+  def deactivateAuthorization(authorizationUri: Uri, keyPair: KeyPair, accountLocation: Uri)
+  : F[Either[Error, Authorization[Challenge]]] =
+    postAsGet[AuthorizationClaims, Authorization[Challenge]](authorizationUri,
+      AuthorizationClaims(status = AuthorizationStatus.deactivated.some), keyPair, accountLocation.some)(
+      acmeApi.authorization[Challenge]
+    )
+
+  def preAuthorization(claims: PreAuthorizationClaims, keyPair: KeyPair, accountLocation: Uri)
+  : F[Either[Error, (Authorization[Challenge], Uri)]] =
+    val eitherT =
+      for
+        directory <- EitherT(directory)
+        newAuthorization <- directory.newAuthorization.toRight(OptionEmpty.label("newAuthorization")).eLiftET[F]
+        authorization <- EitherT(postAsGet[PreAuthorizationClaims, (Authorization[Challenge], Uri)](newAuthorization,
+          claims, keyPair, accountLocation.some)(acmeApi.newAuthorization[Challenge]))
+      yield
+        authorization
+    eitherT.value
 
   def queryChallenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, HttpResponse[Challenge]]] =
     postAsGet[HttpResponse[Challenge]](challengeUri, keyPair, accountLocation)(acmeApi.challenge[Challenge])

@@ -2,7 +2,7 @@ package com.peknight.acme.client.api
 
 import cats.data.NonEmptyList
 import com.peknight.acme.account.{Account, AccountClaims}
-import com.peknight.acme.authorization.Authorization
+import com.peknight.acme.authorization.{Authorization, PreAuthorizationClaims}
 import com.peknight.acme.challenge.Challenge.`dns-01`
 import com.peknight.acme.context.ACMEContext
 import com.peknight.acme.directory.Directory
@@ -25,6 +25,7 @@ trait ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge]:
   def newAccount(claims: AccountClaims, keyPair: KeyPair): F[Either[Error, (Account, Uri)]]
   def queryAccount(keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Account]]
   def updateAccount(claims: AccountClaims, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Account]]
+  def deactivateAccount(keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Account]]
   def keyChange(newKeyPair: KeyPair, oldKeyPair: KeyPair, accountLocation: Uri): F[Either[Error, Account]]
   def newOrder(claims: OrderClaims, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, (Order, Uri)]]
   def queryOrder(orderLocation: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, HttpResponse[Order]]]
@@ -32,6 +33,10 @@ trait ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge]:
   : F[Either[Error, Order]]
   def queryAuthorization(authorizationUri: Uri, keyPair: KeyPair, accountLocation: Uri)
   : F[Either[Error, Authorization[Challenge]]]
+  def deactivateAuthorization(authorizationUri: Uri, keyPair: KeyPair, accountLocation: Uri)
+  : F[Either[Error, Authorization[Challenge]]]
+  def preAuthorization(claims: PreAuthorizationClaims, keyPair: KeyPair, accountLocation: Uri)
+  : F[Either[Error, (Authorization[Challenge], Uri)]]
   def queryChallenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, HttpResponse[Challenge]]]
   def updateChallenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Challenge]]
   def acceptChallenge[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, A](authorization: Authorization[Challenge], publicKey: PublicKey)

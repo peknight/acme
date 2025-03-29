@@ -16,7 +16,8 @@ case class AccountClaims(
                           contact: Option[List[Uri]] = None,
                           termsOfServiceAgreed: Option[Boolean] = None,
                           onlyReturnExisting: Option[Boolean] = None,
-                          externalAccountBinding: Option[JsonWebSignature] = None
+                          externalAccountBinding: Option[JsonWebSignature] = None,
+                          status: Option[AccountStatus] = None
                         )
 object AccountClaims:
   given codecAccountClaims[F[_], S](using Monad[F], ObjectType[S], NullType[S], ArrayType[S], BooleanType[S],

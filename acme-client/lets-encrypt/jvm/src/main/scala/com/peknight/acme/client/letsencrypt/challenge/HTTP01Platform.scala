@@ -4,13 +4,8 @@ import cats.data.EitherT
 import cats.effect.Sync
 import com.peknight.acme.client.letsencrypt.challenge.Challenge.`http-01`
 import com.peknight.cats.ext.syntax.eitherT.eLiftET
-import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.error.Error
-import com.peknight.error.syntax.applicativeError.asError
-import com.peknight.error.syntax.either.asError
 import com.peknight.jose.jwk.JsonWebKey
-import com.peknight.security.digest.`SHA-256`
-import scodec.bits.ByteVector
 
 import java.security.PublicKey
 
