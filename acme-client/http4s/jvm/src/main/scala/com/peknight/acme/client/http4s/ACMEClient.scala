@@ -13,6 +13,7 @@ import cats.{Id, Parallel, Show}
 import com.peknight.acme.account.{Account, AccountClaims}
 import com.peknight.acme.authorization.{Authorization, AuthorizationStatus}
 import com.peknight.acme.bouncycastle.pkcs.PKCS10CertificationRequest
+import com.peknight.acme.certificate.RevokeClaims
 import com.peknight.acme.challenge.Challenge.`dns-01`
 import com.peknight.acme.challenge.{ChallengeClaims, ChallengeStatus}
 import com.peknight.acme.client.api
@@ -41,6 +42,7 @@ import com.peknight.jose.jws.JsonWebSignature
 import com.peknight.logging.syntax.either.log
 import com.peknight.logging.syntax.eitherF.log
 import com.peknight.logging.syntax.eitherT.log
+import com.peknight.security.certificate.revocation.list.ReasonCode
 import com.peknight.validation.collection.list.either.one
 import com.peknight.validation.std.either.{isTrue, typed}
 import io.circe.Json
@@ -51,7 +53,7 @@ import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 import scodec.bits.ByteVector
 
-import java.security.cert.X509Certificate
+import java.security.cert.{Certificate, X509Certificate}
 import java.security.{KeyPair, PublicKey}
 import java.util.Locale
 import scala.concurrent.duration.*
@@ -212,15 +214,27 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
       acmeApi.certificate
     )
 
-  def fetchCertificates[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, A](
+  def revokeCertificate(certificate: Certificate, keyPair: KeyPair, accountLocation: Uri,
+                        reason: Option[ReasonCode] = None): F[Either[Error, Unit]] =
+    val eitherT =
+      for
+        directory <- EitherT(directory)
+        claims = RevokeClaims(Base64UrlNoPad.fromByteVector(ByteVector(certificate.getEncoded)), reason)
+        response <- EitherT(postAsGet[RevokeClaims, Unit](directory.revokeCertificate, claims,
+          keyPair, accountLocation.some)(acmeApi.revokeCertificate))
+      yield
+        response
+    eitherT.value
+
+  def fetchCertificate[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, A](
     identifiers: NonEmptyList[Identifier],
     accountKeyPair: F[Either[Error, KeyPair]],
     domainKeyPair: F[Either[Error, KeyPair]],
     sleepAfterPrepare: Duration = 2.minutes,
     queryChallengeTimeout: FiniteDuration = 1.minutes,
     queryChallengeInterval: FiniteDuration = 3.seconds,
-    orderTimeout: FiniteDuration = 1.minutes,
-    orderInterval: FiniteDuration = 3.seconds
+    queryOrderTimeout: FiniteDuration = 1.minutes,
+    queryOrderInterval: FiniteDuration = 3.seconds
   )(ic: Authorization[Challenge] => Either[Error, (I, C)]
   )(prepare: (I, C, PublicKey) => F[Either[Error, Option[A]]]
   )(clean: (I, C, Option[A]) => F[Either[Error, Unit]]): F[Either[Error, NonEmptyList[X509Certificate]]] =
@@ -254,8 +268,15 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
                   _ <- EitherT(GenTemporal[F].sleep(sleepAfterPrepare).asError)
                   challenge <- EitherT(updateChallenge(challenge.url, accountKeyPair, accountLocation))
                     .log(name = "ACMEClient#updateChallenge", param = Some(challenge.url))
-                  challenge <- EitherT(queryChallengeRetry(challenge.url, accountKeyPair, accountLocation)(
-                    queryChallengeTimeout, queryChallengeInterval))
+                  challenge <-
+                    if Set(ChallengeStatus.valid, ChallengeStatus.invalid).contains(challenge.status) then challenge.rLiftET
+                    else
+                      for
+                        _ <- EitherT(GenTemporal[F].sleep(queryChallengeInterval).asError)
+                        challenge <- EitherT(queryChallengeRetry(challenge.url, accountKeyPair, accountLocation)(
+                          queryChallengeTimeout, queryChallengeInterval))
+                      yield
+                        challenge
                   challenge <- isTrue(challenge.status === ChallengeStatus.valid,
                     ChallengeStatusNotValid(challenge.status).value(challenge)).eLiftET
                   authorization <- EitherT(queryAuthorization(authorizationUri, accountKeyPair, accountLocation))
@@ -269,7 +290,7 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
           yield
             authorization
         }
-        order <- EitherT(queryOrderRetry(orderLocation, accountKeyPair, accountLocation)(orderTimeout, orderInterval,
+        order <- EitherT(queryOrderRetry(orderLocation, accountKeyPair, accountLocation)(queryOrderTimeout, queryOrderInterval,
           Set(OrderStatus.ready, OrderStatus.valid, OrderStatus.invalid)))
         _ <- isTrue(order.status === OrderStatus.ready, OrderStatusNotReady(order.status)).eLiftET
         generalNames <- order.toGeneralNames.eLiftET
@@ -280,8 +301,15 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
         finalizeClaims = FinalizeClaims(csr)
         order <- EitherT(finalizeOrder(order.finalizeUri, finalizeClaims, accountKeyPair, accountLocation))
           .log(name = "ACMEClient#finalizeOrder", param = Some(order.finalizeUri))
-        order <- EitherT(queryOrderRetry(orderLocation, accountKeyPair, accountLocation)(orderTimeout, orderInterval,
-          Set(OrderStatus.valid, OrderStatus.invalid)))
+        order <-
+          if Set(OrderStatus.valid, OrderStatus.invalid).contains(order.status) then order.rLiftET
+          else
+            for
+              _ <- EitherT(GenTemporal[F].sleep(queryOrderInterval).asError)
+              order <- EitherT(queryOrderRetry(orderLocation, accountKeyPair, accountLocation)(queryOrderTimeout,
+                queryOrderInterval, Set(OrderStatus.valid, OrderStatus.invalid)))
+            yield
+              order
         _ <- isTrue(order.status === OrderStatus.valid, OrderStatusNotValid(order.status)).eLiftET
         certificateUri <- order.starCertificate.orElse(order.certificate).toRight(OptionEmpty.label("certificateUri")).eLiftET
         (certificates, alternates) <- EitherT(downloadCertificate(certificateUri, accountKeyPair, accountLocation))

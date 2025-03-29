@@ -26,4 +26,5 @@ trait ACMEApi[F[_]] extends ACMEApiPlatform[F]:
   : F[Either[Error, Authorization[Challenge]]]
   def challenge[Challenge](jws: JsonWebSignature, uri: Uri)(using Decoder[Id, Cursor[Json], Challenge])
   : F[Either[Error, HttpResponse[Challenge]]]
+  def revokeCertificate(jws: JsonWebSignature, uri: Uri): F[Either[Error, Unit]]
 end ACMEApi

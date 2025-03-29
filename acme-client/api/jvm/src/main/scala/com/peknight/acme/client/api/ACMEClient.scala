@@ -11,9 +11,10 @@ import com.peknight.acme.order.{FinalizeClaims, Order, OrderClaims}
 import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.error.Error
 import com.peknight.http.HttpResponse
+import com.peknight.security.certificate.revocation.list.ReasonCode
 import org.http4s.Uri
 
-import java.security.cert.X509Certificate
+import java.security.cert.{Certificate, X509Certificate}
 import java.security.{KeyPair, PublicKey}
 import scala.concurrent.duration.*
 
@@ -37,15 +38,17 @@ trait ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge]:
   def getDnsIdentifierAndChallenge(authorization: Authorization[Challenge]): Either[Error, (DNS, `dns-01`)]
   def downloadCertificate(certificateUri: Uri, keyPair: KeyPair, accountLocation: Uri)
   : F[Either[Error, (NonEmptyList[X509Certificate], Option[List[Uri]])]]
-  def fetchCertificates[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, A](
+  def revokeCertificate(certificate: Certificate, keyPair: KeyPair, accountLocation: Uri,
+                        reason: Option[ReasonCode] = None): F[Either[Error, Unit]]
+  def fetchCertificate[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, A](
     identifiers: NonEmptyList[Identifier],
     accountKeyPair: F[Either[Error, KeyPair]],
     domainKeyPair: F[Either[Error, KeyPair]],
     sleepAfterPrepare: Duration = 2.minutes,
     queryChallengeTimeout: FiniteDuration = 1.minutes,
     queryChallengeInterval: FiniteDuration = 3.seconds,
-    orderTimeout: FiniteDuration = 1.minutes,
-    orderInterval: FiniteDuration = 3.seconds
+    queryOrderTimeout: FiniteDuration = 1.minutes,
+    queryOrderInterval: FiniteDuration = 3.seconds
   )(ic: Authorization[Challenge] => Either[Error, (I, C)]
   )(prepare: (I, C, PublicKey) => F[Either[Error, Option[A]]]
   )(clean: (I, C, Option[A]) => F[Either[Error, Unit]]): F[Either[Error, NonEmptyList[X509Certificate]]]

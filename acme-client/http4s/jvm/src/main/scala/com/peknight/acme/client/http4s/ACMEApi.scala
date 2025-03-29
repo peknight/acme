@@ -94,9 +94,12 @@ class ACMEApi[F[_]: Async](
     postJwsAcceptJson[Challenge](jws, uri)
 
   def certificate(jws: JsonWebSignature, uri: Uri): F[Either[Error, (NonEmptyList[X509Certificate], Option[List[Uri]])]] =
-    postJws[List[X509Certificate]](jws, uri, `application/pem-certificate-chain`).map(_.flatMap { response =>
+    postJwsAcceptResponse[List[X509Certificate]](jws, uri, `application/pem-certificate-chain`).map(_.flatMap { response =>
       nonEmpty(response.body).map(certificates => (certificates, response.headers.getLinks("alternate")))
     })
+
+  def revokeCertificate(jws: JsonWebSignature, uri: Uri): F[Either[Error, Unit]] =
+    postJws[Unit](jws, uri, `application/json`)(_ => ().pure[F])
 
   private def get[A](uri: Uri, cacheRef: Ref[F, Option[HttpResponse[A]]], label: String)
                     (using Decoder[Id, Cursor[Json], A])
@@ -149,17 +152,24 @@ class ACMEApi[F[_]: Async](
 
   private def postJwsAcceptJson[A](jws: JsonWebSignature, uri: Uri)(using EntityDecoder[F, A])
   : F[Either[Error, HttpResponse[A]]] =
-    postJws[A](jws, uri, `application/json`)
+    postJwsAcceptResponse[A](jws, uri, `application/json`)
 
-  private def postJws[A](jws: JsonWebSignature, uri: Uri, acceptMediaRange: MediaRange)(using EntityDecoder[F, A])
+  private def postJwsAcceptResponse[A](jws: JsonWebSignature, uri: Uri, acceptMediaRange: MediaRange)
+                                      (using EntityDecoder[F, A])
   : F[Either[Error, HttpResponse[A]]] =
+    postJws[HttpResponse[A]](jws, uri, acceptMediaRange)(HttpResponse.fromResponse[F, A])
+
+  private def postJws[A](jws: JsonWebSignature, uri: Uri, acceptMediaRange: MediaRange)
+                        (decode: Response[F] => F[A])
+  : F[Either[Error, A]] =
     val eitherF =
       for
         headers <- postHeaders[F](locale, compression, acceptMediaRange)
-        result <- client.run(POST(jws.asS[Id, Json], uri, headers)).use(response => updateNonce(response).flatMap(_ =>
-          if response.status.isSuccess then HttpResponse.fromResponse[F, A](response).map(_.asRight)
-          else response.as[ACMEError].map(_.asLeft)
-        ))
+        result <- client.run(POST(jws.asS[Id, Json], uri, headers))
+          .use(response => updateNonce(response).flatMap { _ =>
+            if response.status.isSuccess then decode(response).map(_.asRight)
+            else response.as[ACMEError].map(_.asLeft)
+          })
       yield
         result
     eitherF.asError.map(_.flatten)
