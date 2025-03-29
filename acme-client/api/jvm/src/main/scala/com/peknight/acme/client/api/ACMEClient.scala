@@ -4,6 +4,7 @@ import cats.data.NonEmptyList
 import com.peknight.acme.account.{Account, AccountClaims}
 import com.peknight.acme.authorization.Authorization
 import com.peknight.acme.challenge.Challenge.`dns-01`
+import com.peknight.acme.context.ACMEContext
 import com.peknight.acme.directory.Directory
 import com.peknight.acme.identifier.Identifier
 import com.peknight.acme.identifier.Identifier.DNS
@@ -23,6 +24,7 @@ trait ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge]:
   def nonce: F[Either[Error, Base64UrlNoPad]]
   def newAccount(claims: AccountClaims, keyPair: KeyPair): F[Either[Error, (Account, Uri)]]
   def queryAccount(keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Account]]
+  def updateAccount(claims: AccountClaims, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Account]]
   def newOrder(claims: OrderClaims, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, (Order, Uri)]]
   def queryOrder(orderLocation: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, HttpResponse[Order]]]
   def finalizeOrder(finalizeUri: Uri, claims: FinalizeClaims, keyPair: KeyPair, accountLocation: Uri)
@@ -51,5 +53,5 @@ trait ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge]:
     queryOrderInterval: FiniteDuration = 3.seconds
   )(ic: Authorization[Challenge] => Either[Error, (I, C)]
   )(prepare: (I, C, PublicKey) => F[Either[Error, Option[A]]]
-  )(clean: (I, C, Option[A]) => F[Either[Error, Unit]]): F[Either[Error, NonEmptyList[X509Certificate]]]
+  )(clean: (I, C, Option[A]) => F[Either[Error, Unit]]): F[Either[Error, ACMEContext[Challenge]]]
 end ACMEClient

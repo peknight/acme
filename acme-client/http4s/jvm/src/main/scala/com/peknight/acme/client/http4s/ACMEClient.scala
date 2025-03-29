@@ -19,6 +19,7 @@ import com.peknight.acme.challenge.{ChallengeClaims, ChallengeStatus}
 import com.peknight.acme.client.api
 import com.peknight.acme.client.error.*
 import com.peknight.acme.client.jose.{signEmptyString, signJson}
+import com.peknight.acme.context.ACMEContext
 import com.peknight.acme.directory.Directory
 import com.peknight.acme.identifier.Identifier
 import com.peknight.acme.identifier.Identifier.DNS
@@ -110,6 +111,9 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
 
   def queryAccount(keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Account]] =
     postAsGet[Account](accountLocation, keyPair, accountLocation)(acmeApi.account)
+
+  def updateAccount(claims: AccountClaims, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Account]] =
+    postAsGet[AccountClaims, Account](accountLocation, claims, keyPair, accountLocation.some)(acmeApi.account)
 
   def newOrder(claims: OrderClaims, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, (Order, Uri)]] =
     val eitherT =
@@ -237,7 +241,7 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
     queryOrderInterval: FiniteDuration = 3.seconds
   )(ic: Authorization[Challenge] => Either[Error, (I, C)]
   )(prepare: (I, C, PublicKey) => F[Either[Error, Option[A]]]
-  )(clean: (I, C, Option[A]) => F[Either[Error, Unit]]): F[Either[Error, NonEmptyList[X509Certificate]]] =
+  )(clean: (I, C, Option[A]) => F[Either[Error, Unit]]): F[Either[Error, ACMEContext[Challenge]]] =
     given Show[KeyPair] = Show.show(keyPair =>
       JsonWebKey.fromKeyPair(keyPair).map(_.asS[Id, Json].deepDropNullValues.noSpaces).getOrElse(keyPair.toString)
     )
@@ -269,7 +273,8 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
                   challenge <- EitherT(updateChallenge(challenge.url, accountKeyPair, accountLocation))
                     .log(name = "ACMEClient#updateChallenge", param = Some(challenge.url))
                   challenge <-
-                    if Set(ChallengeStatus.valid, ChallengeStatus.invalid).contains(challenge.status) then challenge.rLiftET
+                    if Set(ChallengeStatus.valid, ChallengeStatus.invalid).contains(challenge.status) then
+                      challenge.rLiftET
                     else
                       for
                         _ <- EitherT(GenTemporal[F].sleep(queryChallengeInterval).asError)
@@ -290,8 +295,8 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
           yield
             authorization
         }
-        order <- EitherT(queryOrderRetry(orderLocation, accountKeyPair, accountLocation)(queryOrderTimeout, queryOrderInterval,
-          Set(OrderStatus.ready, OrderStatus.valid, OrderStatus.invalid)))
+        order <- EitherT(queryOrderRetry(orderLocation, accountKeyPair, accountLocation)(queryOrderTimeout,
+          queryOrderInterval, Set(OrderStatus.ready, OrderStatus.valid, OrderStatus.invalid)))
         _ <- isTrue(order.status === OrderStatus.ready, OrderStatusNotReady(order.status)).eLiftET
         generalNames <- order.toGeneralNames.eLiftET
         domainKeyPair <- EitherT(domainKeyPair).log(name = "ACMEClient#domainKeyPair")
@@ -311,11 +316,13 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
             yield
               order
         _ <- isTrue(order.status === OrderStatus.valid, OrderStatusNotValid(order.status)).eLiftET
-        certificateUri <- order.starCertificate.orElse(order.certificate).toRight(OptionEmpty.label("certificateUri")).eLiftET
+        certificateUri <- order.starCertificate.orElse(order.certificate).toRight(OptionEmpty.label("certificateUri"))
+          .eLiftET
         (certificates, alternates) <- EitherT(downloadCertificate(certificateUri, accountKeyPair, accountLocation))
           .log(name = "ACMEClient#downloadCertificate", param = Some(certificateUri))
       yield
-        certificates
+        ACMEContext(accountKeyPair, domainKeyPair, certificates, account, accountLocation, order, orderLocation,
+          authorizations, alternates)
     eitherT.value
 
   private def postAsGet[A, B](uri: Uri, payload: A, keyPair: KeyPair, accountLocation: Option[Uri] = None)
