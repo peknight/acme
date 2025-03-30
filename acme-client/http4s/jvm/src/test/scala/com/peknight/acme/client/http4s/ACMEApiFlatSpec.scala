@@ -1,5 +1,6 @@
 package com.peknight.acme.client.http4s
 
+import cats.Show
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.IO
 import cats.effect.testing.scalatest.AsyncIOSpec
@@ -16,6 +17,7 @@ import com.peknight.cloudflare.dns.record.DNSRecordId
 import com.peknight.cloudflare.dns.record.http4s.DNSRecordApi
 import com.peknight.cloudflare.test.{pekToken, pekZoneId}
 import com.peknight.error.syntax.applicativeError.asError
+import com.peknight.logging.syntax.eitherT.log
 import com.peknight.security.Security
 import com.peknight.security.bouncycastle.jce.provider.BouncyCastleProvider
 import com.peknight.security.cipher.RSA
@@ -32,6 +34,7 @@ import scala.concurrent.duration.*
 class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
 
   "ACME Api Directory" should "succeed" in {
+    given [A]: Show[A] = Show.fromToString[A]
     val run =
       for
         provider <- BouncyCastleProvider[IO]
@@ -56,9 +59,9 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                   RSA.keySizeGenerateKeyPair[IO](4096).asError)(
                   acmeClient.getDnsIdentifierAndChallenge)(dnsChallengeClient.createDNSRecord)(
                   dnsChallengeClient.cleanDNSRecord(_, _, _).map(_.as(()))
-                ))
+                )).log(name = "fetchCertificates", param = Some(identifiers))
               yield
-                certificates
+                ()
             eitherT.value
           }
       yield either
