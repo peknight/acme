@@ -46,7 +46,7 @@ object Meta:
                            StringType[S], Encoder[F, S, JsonObject], Decoder[F, Cursor[S], JsonObject])
   : Codec[F, S, Cursor[S], Meta] =
     given CodecConfiguration = CodecConfiguration.default
-      .withTransformMemberNames(memberName => memberNameMap.getOrElse(memberName, memberName))
+      .withTransformMemberName(memberName => memberNameMap.getOrElse(memberName, memberName))
       .withExtField("ext")
     Codec.derived[F, S, Meta]
   given jsonCodecMeta[F[_]: Monad]: Codec[F, Json, Cursor[Json], Meta] =

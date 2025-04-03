@@ -65,7 +65,7 @@ object Identifier:
 
   private val codecConfiguration: CodecConfiguration =
     CodecConfiguration.default
-      .withTransformConstructorNames(constructorName => constructorNameMap.getOrElse(constructorName, constructorName))
+      .withTransformConstructorName(constructorName => constructorNameMap.getOrElse(constructorName, constructorName))
       .withDiscriminator("type").withExtField("ext")
 
   given codecDNS[F[_], S](using Monad[F], ObjectType[S], NullType[S], ArrayType[S], BooleanType[S], NumberType[S],

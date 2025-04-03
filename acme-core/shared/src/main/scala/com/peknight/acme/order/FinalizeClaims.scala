@@ -18,7 +18,7 @@ object FinalizeClaims:
   given codecFinalizeClaims[F[_], S](using Monad[F], ObjectType[S], NullType[S], StringType[S])
   : Codec[F, S, Cursor[S], FinalizeClaims] =
     given CodecConfiguration = CodecConfiguration.default
-      .withTransformMemberNames(memberName => memberNameMap.getOrElse(memberName, memberName))
+      .withTransformMemberName(memberName => memberNameMap.getOrElse(memberName, memberName))
     Codec.derived[F, S, FinalizeClaims]
 
   given jsonCodecFinalizeClaims[F[_]: Monad]: Codec[F, Json, Cursor[Json], FinalizeClaims] = codecFinalizeClaims[F, Json]

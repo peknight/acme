@@ -36,7 +36,7 @@ object AutoRenewal:
                                   NumberType[S], StringType[S], Encoder[F, S, JsonObject],
                                   Decoder[F, Cursor[S], JsonObject]): Codec[F, S, Cursor[S], AutoRenewal] =
     given CodecConfiguration = CodecConfiguration.default
-      .withTransformMemberNames(_.to(KebabCase))
+      .withTransformMemberName(_.to(KebabCase))
       .withExtField("ext")
     given Codec[F, S, Cursor[S], Duration] = codecDurationOfSecondsNS
     Codec.derived[F, S, AutoRenewal]

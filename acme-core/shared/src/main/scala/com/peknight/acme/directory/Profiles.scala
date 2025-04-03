@@ -20,7 +20,7 @@ object Profiles:
                                StringType[S], Encoder[F, S, JsonObject], Decoder[F, Cursor[S], JsonObject])
   : Codec[F, S, Cursor[S], Profiles] =
     given CodecConfiguration = CodecConfiguration.default
-      .withTransformMemberNames(memberName => memberNameMap.getOrElse(memberName, memberName))
+      .withTransformMemberName(memberName => memberNameMap.getOrElse(memberName, memberName))
       .withExtField("ext")
     Codec.derived[F, S, Profiles]
   given jsonCodecProfiles[F[_]: Monad]: Codec[F, Json, Cursor[Json], Profiles] =

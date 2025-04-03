@@ -29,7 +29,7 @@ object OrderClaims:
                                     NumberType[S], StringType[S], Encoder[F, S, JsonObject],
                                     Decoder[F, Cursor[S], JsonObject]): Codec[F, S, Cursor[S], OrderClaims] =
     given CodecConfiguration = CodecConfiguration.default
-      .withTransformMemberNames(memberName => memberNameMap.getOrElse(memberName, memberName))
+      .withTransformMemberName(memberName => memberNameMap.getOrElse(memberName, memberName))
       .withExtField("ext")
     Codec.derived[F, S, OrderClaims]
 

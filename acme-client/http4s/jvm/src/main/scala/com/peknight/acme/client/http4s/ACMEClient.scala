@@ -37,7 +37,7 @@ import com.peknight.error.option.OptionEmpty
 import com.peknight.error.syntax.applicativeError.asError
 import com.peknight.error.syntax.either.label
 import com.peknight.http.HttpResponse
-import com.peknight.http.method.retry.syntax.eitherF.retry
+import com.peknight.http.syntax.eitherF.retry
 import com.peknight.jose.jwk.{JsonWebKey, KeyId}
 import com.peknight.jose.jws.JsonWebSignature
 import com.peknight.logging.syntax.either.log

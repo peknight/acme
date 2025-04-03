@@ -32,7 +32,7 @@ object Directory:
                                 StringType[S], Encoder[F, S, JsonObject], Decoder[F, Cursor[S], JsonObject])
   : Codec[F, S, Cursor[S], Directory] =
     given CodecConfiguration = CodecConfiguration.default
-      .withTransformMemberNames(memberName => memberNameMap.getOrElse(memberName, memberName))
+      .withTransformMemberName(memberName => memberNameMap.getOrElse(memberName, memberName))
       .withExtField("ext")
     Codec.derived[F, S, Directory]
   given jsonCodecDirectory[F[_]: Monad]: Codec[F, Json, Cursor[Json], Directory] =
