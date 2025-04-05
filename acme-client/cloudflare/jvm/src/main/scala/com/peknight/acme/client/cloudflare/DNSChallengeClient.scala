@@ -39,7 +39,7 @@ class DNSChallengeClient[F[_]: {Sync, Logger}](dnsRecordApi: DNSRecordApi[F], zo
       for
         content <- EitherT(challenge.content[F](publicKey))
         name = challenge.name(identifier)
-        _ <- deleteDNSRecords(identifier, challenge)("DNSChallengeClient#createDNSRecord")
+//        _ <- deleteDNSRecords(identifier, challenge)("DNSChallengeClient#createDNSRecord")
         record = TXT(content, name, ttl = Some(1.minute))
         dnsRecord <- EitherT(dnsRecordApi.createDNSRecord(zoneId)(record).asError)
           .log(name = "DNSChallengeClient#createDNSRecord", param = Some(record))

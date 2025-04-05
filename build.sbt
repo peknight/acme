@@ -66,7 +66,9 @@ lazy val acmeClientCore = (crossProject(JSPlatform, JVMPlatform) in file("acme-c
   .settings(
     name := "acme-client-core",
     libraryDependencies ++= Seq(
+      "com.peknight" %%% "method-core" % pekMethodVersion,
       "com.peknight" %%% "http4s-ext" % pekExtVersion,
+      "com.peknight" %%% "fs2-io-ext" % pekExtVersion,
     ),
   )
 
@@ -94,7 +96,6 @@ lazy val acmeClientHttp4s = (crossProject(JSPlatform, JVMPlatform) in file("acme
       "com.peknight" %%% "security-http4s" % pekSecurityVersion,
       "com.peknight" %%% "logging-core" % pekLoggingVersion,
       "com.peknight" %%% "commons-time" % pekCommonsVersion,
-      "com.peknight" %%% "method-core" % pekMethodVersion % Test,
       "com.peknight" %%% "logback-config" % pekLoggingVersion % Test,
       "com.peknight.cloudflare" %%% "dns-record-http4s" % pekCloudflareVersion % Test,
       "com.peknight.cloudflare" %%% "test" % pekCloudflareVersion % Test,
