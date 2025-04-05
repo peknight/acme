@@ -64,10 +64,16 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                   "*.ctrl.peknight.com",
                   "*.cdn.peknight.com"
                 ).traverse(domain => Identifier.dns(domain).eLiftET[IO])
-                certificates <- EitherT(acmeClient.fetchCertificate[DNS, `dns-01`, DNSRecordId](identifiers,
-                  fetchKeyPair[IO](Path("cert/account.key"))(secp256r1.generateKeyPair[IO](provider = Some(provider)).asError),
-                  fetchKeyPair[IO](Path("cert/domain.key"))(RSA.keySizeGenerateKeyPair[IO](4096).asError))(
-                  acmeClient.getDnsIdentifierAndChallenge)(dnsChallengeClient.createDNSRecord)(
+                certificates <- EitherT(acmeClient.fetchCertificate[DNS, `dns-01`, DNSRecordId](
+                  identifiers,
+                  fetchKeyPair[IO](Path("cert/account.key"))(secp256r1.generateKeyPair[IO](provider = Some(provider))
+                    .asError),
+                  fetchKeyPair[IO](Path("cert/domain.key"))(RSA.keySizeGenerateKeyPair[IO](4096).asError)
+                )(
+                  acmeClient.getDnsIdentifierAndChallenge
+                )(
+                  dnsChallengeClient.createDNSRecord
+                )(
                   dnsChallengeClient.cleanDNSRecord(_, _, _).map(_.as(()))
                 )).log(name = "fetchCertificates", param = Some(identifiers))
               yield
