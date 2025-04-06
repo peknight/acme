@@ -10,7 +10,6 @@ import com.peknight.acme.client.cloudflare.DNSChallengeClient
 import com.peknight.acme.client.letsencrypt.challenge.Challenge
 import com.peknight.acme.client.letsencrypt.uri
 import com.peknight.acme.client.letsencrypt.uri.stagingDirectory
-import com.peknight.acme.client.security.fetchKeyPair
 import com.peknight.acme.identifier.Identifier
 import com.peknight.acme.identifier.Identifier.DNS
 import com.peknight.cats.ext.syntax.eitherT.eLiftET
@@ -23,6 +22,7 @@ import com.peknight.jose.jwk.JsonWebKey
 import com.peknight.logging.syntax.eitherT.log
 import com.peknight.security.Security
 import com.peknight.security.bouncycastle.jce.provider.BouncyCastleProvider
+import com.peknight.security.bouncycastle.openssl.{fetchKeyPair, fetchX509Certificates}
 import com.peknight.security.cipher.RSA
 import com.peknight.security.ecc.sec.secp256r1
 import fs2.io.file.Path
@@ -58,24 +58,31 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 acmeClient <- EitherT(ACMEClient[IO, Challenge](client, stagingDirectory)(dsl.io).asError)
                 given DNSRecordApi[IO] = DNSRecordApi[IO](pekToken)(client)(dsl.io)
                 dnsChallengeClient <- EitherT(DNSChallengeClient[IO](pekZoneId).asError)
-                identifiers <- NonEmptyList.of(
-                  "*.peknight.com",
-                  "*.server.peknight.com",
-                  "*.ctrl.peknight.com",
-                  "*.cdn.peknight.com"
-                ).traverse(domain => Identifier.dns(domain).eLiftET[IO])
-                certificates <- EitherT(acmeClient.fetchCertificate[DNS, `dns-01`, DNSRecordId](
-                  identifiers,
-                  fetchKeyPair[IO](Path("cert/account.key"))(secp256r1.generateKeyPair[IO](provider = Some(provider))
-                    .asError),
-                  fetchKeyPair[IO](Path("cert/domain.key"))(RSA.keySizeGenerateKeyPair[IO](4096).asError)
-                )(
-                  acmeClient.getDnsIdentifierAndChallenge
-                )(
-                  dnsChallengeClient.createDNSRecord
-                )(
-                  dnsChallengeClient.cleanDNSRecord(_, _, _).map(_.as(()))
-                )).log(name = "fetchCertificates", param = Some(identifiers))
+                _ <- EitherT(fetchX509Certificates[IO](Path("cert/domain-chain.crt"), provider = Some(provider)) {
+                  val et =
+                    for
+                      identifiers <- NonEmptyList.of(
+                        "*.peknight.com",
+                        "*.server.peknight.com",
+                        "*.ctrl.peknight.com",
+                        "*.cdn.peknight.com"
+                      ).traverse(domain => Identifier.dns(domain).eLiftET[IO])
+                      certificates <- EitherT(acmeClient.fetchCertificate[DNS, `dns-01`, DNSRecordId](
+                        identifiers,
+                        fetchKeyPair[IO](Path("cert/account.key"))(
+                          secp256r1.generateKeyPair[IO](provider = Some(provider)).asError),
+                        fetchKeyPair[IO](Path("cert/domain.key"))(RSA.keySizeGenerateKeyPair[IO](4096).asError)
+                      )(
+                        acmeClient.getDnsIdentifierAndChallenge
+                      )(
+                        dnsChallengeClient.createDNSRecord
+                      )(
+                        dnsChallengeClient.cleanDNSRecord(_, _, _).map(_.as(()))
+                      )).log(name = "fetchCertificates", param = Some(identifiers))
+                    yield
+                      certificates.certificates
+                  et.value
+                })
               yield
                 ()
             eitherT.value

@@ -66,9 +66,7 @@ lazy val acmeClientCore = (crossProject(JSPlatform, JVMPlatform) in file("acme-c
   .settings(
     name := "acme-client-core",
     libraryDependencies ++= Seq(
-      "com.peknight" %%% "method-core" % pekMethodVersion,
       "com.peknight" %%% "http4s-ext" % pekExtVersion,
-      "com.peknight" %%% "fs2-io-ext" % pekExtVersion,
     ),
   )
 
