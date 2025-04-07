@@ -12,7 +12,7 @@ import com.comcast.ip4s.port
 import com.peknight.acme.challenge.Challenge.`dns-01`
 import com.peknight.acme.client.cloudflare.DNSChallengeClient
 import com.peknight.acme.client.letsencrypt.challenge.Challenge
-import com.peknight.acme.client.letsencrypt.uri.stagingDirectory
+import com.peknight.acme.client.letsencrypt.uri.{acmeStaging, resolve}
 import com.peknight.acme.identifier.Identifier
 import com.peknight.acme.identifier.Identifier.DNS
 import com.peknight.cats.ext.syntax.eitherT.eLiftET
@@ -59,6 +59,7 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
           .use { client =>
             val eitherT =
               for
+                stagingDirectory <- resolve(acmeStaging).eLiftET[IO]
                 acmeClient <- EitherT(ACMEClient[IO, Challenge](client, stagingDirectory)(dsl.io).asError)
                 given DNSRecordApi[IO] = DNSRecordApi[IO](pekToken)(client)(dsl.io)
                 dnsChallengeClient <- EitherT(DNSChallengeClient[IO](pekZoneId).asError)
