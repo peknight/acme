@@ -98,6 +98,8 @@ lazy val acmeClientHttp4s = (crossProject(JSPlatform, JVMPlatform) in file("acme
       "com.peknight.cloudflare" %%% "dns-record-http4s" % pekCloudflareVersion % Test,
       "com.peknight.cloudflare" %%% "test" % pekCloudflareVersion % Test,
       "org.http4s" %%% "http4s-ember-client" % http4sVersion % Test,
+      "org.http4s" %%% "http4s-ember-server" % http4sVersion % Test,
+      "org.http4s" %%% "http4s-dsl" % http4sVersion % Test,
       "org.scalatest" %%% "scalatest-flatspec" % scalaTestVersion % Test,
       "org.typelevel" %%% "cats-effect-testing-scalatest" % catsEffectTestingScalaTestVersion % Test,
     ),
