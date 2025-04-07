@@ -40,9 +40,9 @@ class DNSChallengeClient[F[_]: {Sync, Logger}](dnsRecordApi: DNSRecordApi[F], zo
         content <- EitherT(challenge.content[F](publicKey))
         name = challenge.name(identifier)
 //        _ <- deleteDNSRecords(identifier, challenge)("DNSChallengeClient#createDNSRecord")
-        record = TXT(content, name, ttl = Some(1.minute))
+        record = TXT(content, name, ttl = 1.minute.some)
         dnsRecord <- EitherT(dnsRecordApi.createDNSRecord(zoneId)(record).asError)
-          .log(name = "DNSChallengeClient#createDNSRecord", param = Some(record))
+          .log("DNSChallengeClient#createDNSRecord", record.some)
       yield
         dnsRecord.id.some
     eitherT.value
@@ -51,7 +51,7 @@ class DNSChallengeClient[F[_]: {Sync, Logger}](dnsRecordApi: DNSRecordApi[F], zo
   : F[Either[Error, List[DNSRecordId]]] =
     dnsRecordId match
       case Some(id) => dnsRecordApi.deleteDNSRecord(zoneId, id).asError.map(_.map(List(_)))
-        .log(name = "DNSChallengeClient#cleanDNSRecord#deleteDNSRecord", param = Some(id))
+        .log("DNSChallengeClient#cleanDNSRecord#deleteDNSRecord", id.some)
       case None => deleteDNSRecords(identifier, challenge)("DNSChallengeClient#cleanDNSRecord").map(_.map(_.id)).value
 
   private def deleteDNSRecords(identifier: DNS, challenge: `dns-01`)(logName: String): EitherT[F, Error, List[DNSRecord]] =
@@ -59,7 +59,7 @@ class DNSChallengeClient[F[_]: {Sync, Logger}](dnsRecordApi: DNSRecordApi[F], zo
     val query = ListDNSRecordsQuery(name = name.some)
     for
       dnsRecords <- EitherT(dnsRecordApi.listDNSRecords(zoneId)(query).asError)
-        .log(name = s"$logName#listDNSRecords", param = Some(query))
+        .log(s"$logName#listDNSRecords", query.some)
       dnsRecordIds <- dnsRecords.traverse { dnsRecord =>
         val eitherT =
           for
@@ -67,7 +67,7 @@ class DNSChallengeClient[F[_]: {Sync, Logger}](dnsRecordApi: DNSRecordApi[F], zo
             _ <- isTrue(dnsRecordId === dnsRecord.id, DNSRecordIdNotMatch(dnsRecordId, dnsRecord.id)).eLiftET[F]
           yield
             dnsRecordId
-        eitherT.log(name = s"$logName#deleteDNSRecord", param = Some(dnsRecord.id))
+        eitherT.log(s"$logName#deleteDNSRecord", dnsRecord.id.some)
       }
     yield
       dnsRecords

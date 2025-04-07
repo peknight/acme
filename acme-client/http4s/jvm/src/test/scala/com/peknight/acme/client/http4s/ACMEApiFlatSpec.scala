@@ -63,9 +63,9 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 given DNSRecordApi[IO] = DNSRecordApi[IO](pekToken)(client)(dsl.io)
                 dnsChallengeClient <- EitherT(DNSChallengeClient[IO](pekZoneId).asError)
                 accountKeyPair <- EitherT(fetchKeyPair[IO](Path("cert/account.key"))(
-                  secp256r1.generateKeyPair[IO](provider = provider.some).asError)).log(name = "accountKeyPair")
+                  secp256r1.generateKeyPair[IO](provider = provider.some).asError)).log("accountKeyPair")
                 domainKeyPair <- EitherT(fetchKeyPair[IO](Path("cert/domain.key"))(
-                  RSA.keySizeGenerateKeyPair[IO](4096).asError)).log(name = "domainKeyPair")
+                  RSA.keySizeGenerateKeyPair[IO](4096).asError)).log("domainKeyPair")
                 certificates <- EitherT(fetchX509Certificates[IO](Path("cert/domain-chain.crt"),
                   provider = provider.some) {
                   val et =
@@ -86,13 +86,12 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                         dnsChallengeClient.createDNSRecord
                       )(
                         dnsChallengeClient.cleanDNSRecord(_, _, _).map(_.as(()))
-                      )).log(name = "fetchCertificates", param = identifiers.some)
+                      )).log("fetchCertificates", identifiers.some)
                     yield
                       certificates.certificates
                   et.value
-                }).log(name = "certificates")
-                keyStore <- EitherT(pkcs12[IO]("", domainKeyPair.getPrivate, "", certificates).asError)
-                  .log(name = "keyStore")
+                }).log("certificates")
+                keyStore <- EitherT(pkcs12[IO]("", domainKeyPair.getPrivate, "", certificates).asError).log("keyStore")
               yield
                 ()
             eitherT.value
