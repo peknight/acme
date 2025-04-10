@@ -51,9 +51,8 @@ class ACMEApi[F[_]: Async](
                             compression: Boolean,
                             nonceRef: Ref[F, Option[Base64UrlNoPad]],
                             directoryRef: Ref[F, Option[HttpResponse[Directory]]]
-                          )(client: Client[F])(dsl: Http4sClientDsl[F])
-  extends api.ACMEApi[F]:
-
+                          )(using client: Client[F]) extends api.ACMEApi[F]:
+  val dsl: Http4sClientDsl[F] = Http4sClientDsl[F]
   import dsl.*
 
   def directory(uri: Uri): F[Either[Error, Directory]] = get[Directory](uri, directoryRef, "directory")

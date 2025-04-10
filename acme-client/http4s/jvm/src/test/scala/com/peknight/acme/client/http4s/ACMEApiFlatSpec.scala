@@ -32,7 +32,7 @@ import com.peknight.security.key.store.pkcs12
 import fs2.io.file.Path
 import io.circe.Json
 import org.http4s.*
-import org.http4s.client.dsl
+import org.http4s.client.{Client, dsl}
 import org.http4s.ember.client.EmberClientBuilder
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.typelevel.log4cats.Logger
@@ -57,11 +57,12 @@ class ACMEApiFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
         given Logger[IO] = logger
         either <- EmberClientBuilder.default[IO].withLogger(logger).withTimeout(10.seconds).build
           .use { client =>
+            given Client[IO] = client
             val eitherT =
               for
                 stagingDirectory <- resolve(acmeStaging).eLiftET[IO]
-                acmeClient <- EitherT(ACMEClient[IO, Challenge](client, stagingDirectory)(dsl.io).asError)
-                given DNSRecordApi[IO] = DNSRecordApi[IO](pekToken)(client)(dsl.io)
+                acmeClient <- EitherT(ACMEClient[IO, Challenge](stagingDirectory).asError)
+                given DNSRecordApi[IO] = DNSRecordApi[IO](pekToken)
                 dnsChallengeClient <- EitherT(DNSChallengeClient[IO](pekZoneId).asError)
                 accountKeyPair <- EitherT(fetchKeyPair[IO](Path("cert/account.key"))(
                   secp256r1.generateKeyPair[IO](provider = provider.some).asError)).log("accountKeyPair")

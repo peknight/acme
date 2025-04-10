@@ -49,7 +49,6 @@ import com.peknight.validation.std.either.{isTrue, typed}
 import io.circe.Json
 import org.http4s.Uri
 import org.http4s.client.Client
-import org.http4s.client.dsl.Http4sClientDsl
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 import scodec.bits.ByteVector
@@ -384,10 +383,10 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
     eitherT.value
 end ACMEClient
 object ACMEClient:
-  def apply[F[_], Challenge <: com.peknight.acme.challenge.Challenge](client: Client[F], directoryUri: Uri,
+  def apply[F[_], Challenge <: com.peknight.acme.challenge.Challenge](directoryUri: Uri,
                                                                       directoryMaxAge: FiniteDuration = 10.minutes)
-                                                                     (dsl: Http4sClientDsl[F])
-                                                                     (using Async[F], Parallel[F], Decoder[Id, Cursor[Json], Challenge])
+                                                                     (using Client[F], Async[F], Parallel[F],
+                                                                      Decoder[Id, Cursor[Json], Challenge])
   : F[api.ACMEClient[F, Challenge]] =
     for
       locale <- Sync[F].blocking(Locale.getDefault)
@@ -395,7 +394,7 @@ object ACMEClient:
       directoryRef <- Ref[F].of(none[HttpResponse[Directory]])
       logger <- Slf4jLogger.fromClass[F](ACMEClient.getClass)
       given Logger[F] = logger
-      acmeApi = ACMEApi[F](locale, true, nonceRef, directoryRef)(client)(dsl)
+      acmeApi = ACMEApi[F](locale, true, nonceRef, directoryRef)
     yield
       new ACMEClient[F, Challenge](directoryUri, directoryMaxAge, acmeApi, nonceRef, directoryRef)
 end ACMEClient
