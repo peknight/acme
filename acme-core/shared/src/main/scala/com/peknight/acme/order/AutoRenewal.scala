@@ -14,7 +14,7 @@ import com.peknight.commons.text.syntax.cases.to
 import io.circe.{Json, JsonObject}
 
 import java.time.Instant
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.FiniteDuration
 
 /**
  * RFC8739
@@ -22,8 +22,8 @@ import scala.concurrent.duration.Duration
 case class AutoRenewal(
                         startDate: Option[Instant] = None,
                         endDate: Option[Instant] = None,
-                        lifetime: Option[Duration] = None,
-                        lifetimeAdjust: Option[Duration] = None,
+                        lifetime: Option[FiniteDuration] = None,
+                        lifetimeAdjust: Option[FiniteDuration] = None,
                         allowCertificateGet: Option[Boolean] = None,
                         ext: JsonObject = JsonObject.empty
                       ) extends Ext
@@ -34,7 +34,7 @@ object AutoRenewal:
     given CodecConfiguration = CodecConfiguration.default
       .withTransformMemberName(_.to(KebabCase))
       .withExtField("ext")
-    given Codec[F, S, Cursor[S], Duration] = codecDurationOfSecondsNS
+    given Codec[F, S, Cursor[S], FiniteDuration] = codecDurationOfSecondsNS
     Codec.derived[F, S, AutoRenewal]
   given jsonCodecAutoRenewal[F[_]: Monad]: Codec[F, Json, Cursor[Json], AutoRenewal] =
     codecAutoRenewal[F, Json]

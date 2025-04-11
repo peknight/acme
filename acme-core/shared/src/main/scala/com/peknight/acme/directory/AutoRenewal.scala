@@ -13,17 +13,17 @@ import com.peknight.commons.text.cases.KebabCase
 import com.peknight.commons.text.syntax.cases.to
 import io.circe.{Json, JsonObject}
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.FiniteDuration
 
 /**
  * RFC8739
  */
 case class AutoRenewal(
                         // Minimum acceptable value for auto-renewal lifetime, in seconds.
-                        minLifetime: Option[Duration] = None,
+                        minLifetime: Option[FiniteDuration] = None,
                         // Maximum allowed delta between the end-date and start-date attributes of the Order's
                         // auto-renewal object.
-                        maxDuration: Option[Duration] = None,
+                        maxDuration: Option[FiniteDuration] = None,
                         // If this field is present and set to "true", the server allows GET (and HEAD) requests to
                         // star-certificate URLs.
                         // If this field is present and set to "true", the client requests the server to allow
@@ -38,7 +38,7 @@ object AutoRenewal:
     given CodecConfiguration = CodecConfiguration.default
       .withTransformMemberName(_.to(KebabCase))
       .withExtField("ext")
-    given Codec[F, S, Cursor[S], Duration] = codecDurationOfSecondsNS
+    given Codec[F, S, Cursor[S], FiniteDuration] = codecDurationOfSecondsNS
     Codec.derived[F, S, AutoRenewal]
   given jsonCodecAutoRenewal[F[_]: Monad]: Codec[F, Json, Cursor[Json], AutoRenewal] =
     codecAutoRenewal[F, Json]
