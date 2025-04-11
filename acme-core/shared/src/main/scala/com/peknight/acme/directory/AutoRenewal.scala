@@ -9,8 +9,8 @@ import com.peknight.codec.cursor.Cursor
 import com.peknight.codec.instances.time.duration.codecDurationOfSecondsNS
 import com.peknight.codec.sum.*
 import com.peknight.codec.{Codec, Decoder, Encoder}
-import com.peknight.commons.string.cases.KebabCase
-import com.peknight.commons.string.syntax.cases.to
+import com.peknight.commons.text.cases.KebabCase
+import com.peknight.commons.text.syntax.cases.to
 import io.circe.{Json, JsonObject}
 
 import scala.concurrent.duration.Duration
