@@ -6,7 +6,7 @@ import com.peknight.codec.circe.iso.codec
 import com.peknight.codec.circe.sum.jsonType.given
 import com.peknight.codec.configuration.CodecConfiguration
 import com.peknight.codec.cursor.Cursor
-import com.peknight.codec.instances.time.duration.codecDurationOfSecondsNS
+import com.peknight.codec.instances.time.finiteDuration.codecFiniteDurationOfSecondsNS
 import com.peknight.codec.sum.*
 import com.peknight.codec.{Codec, Decoder, Encoder}
 import com.peknight.commons.text.cases.KebabCase
@@ -34,7 +34,7 @@ object AutoRenewal:
     given CodecConfiguration = CodecConfiguration.default
       .withTransformMemberName(_.to(KebabCase))
       .withExtField("ext")
-    given Codec[F, S, Cursor[S], FiniteDuration] = codecDurationOfSecondsNS
+    given Codec[F, S, Cursor[S], FiniteDuration] = codecFiniteDurationOfSecondsNS
     Codec.derived[F, S, AutoRenewal]
   given jsonCodecAutoRenewal[F[_]: Monad]: Codec[F, Json, Cursor[Json], AutoRenewal] =
     codecAutoRenewal[F, Json]
