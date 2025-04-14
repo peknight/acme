@@ -1,12 +1,13 @@
 package com.peknight.acme.identifier
 
-import cats.{Id, Monad}
+import cats.{Applicative, Id, Monad}
 import com.comcast.ip4s.IpAddress
 import com.peknight.codec.circe.Ext
 import com.peknight.codec.circe.iso.codec
 import com.peknight.codec.circe.sum.jsonType.given
 import com.peknight.codec.configuration.CodecConfiguration
 import com.peknight.codec.cursor.Cursor
+import com.peknight.codec.error.DecodingFailure
 import com.peknight.codec.ip4s.instances.host.stringCodecIpAddress
 import com.peknight.codec.sum.*
 import com.peknight.codec.{Codec, Decoder, Encoder}
@@ -53,7 +54,7 @@ object Identifier:
   private def toAscii(domain: String): Either[Error, String] =
     Try(IDN.toASCII(domain.trim).toLowerCase(Locale.ENGLISH)).asError
 
-  def dns(domain: String): Either[Error, Identifier] =
+  def dns(domain: String): Either[Error, DNS] =
     toAscii(domain).map(DNS(_))
 
   private val constructorNameMap: Map[String, String] = Map(
@@ -73,6 +74,9 @@ object Identifier:
   : Codec[F, S, Cursor[S], DNS] =
     given CodecConfiguration = codecConfiguration
     Codec.derived[F, S, DNS]
+
+  def stringDecodeDNS[F[_]: Applicative]: Decoder[F, String, DNS] =
+    Decoder.applicative[F, String, DNS](t => dns(t).left.map(DecodingFailure.apply))
 
   given codecIP[F[_], S](using Monad[F], ObjectType[S], NullType[S], ArrayType[S], BooleanType[S], NumberType[S],
                          StringType[S], Encoder[F, S, JsonObject], Decoder[F, Cursor[S], JsonObject])
