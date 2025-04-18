@@ -3,11 +3,9 @@ package com.peknight.acme.client.api
 import cats.data.NonEmptyList
 import com.peknight.acme.account.{Account, AccountClaims}
 import com.peknight.acme.authorization.{Authorization, PreAuthorizationClaims}
-import com.peknight.acme.challenge.Challenge.`dns-01`
 import com.peknight.acme.context.ACMEContext
 import com.peknight.acme.directory.Directory
 import com.peknight.acme.identifier.Identifier
-import com.peknight.acme.identifier.Identifier.DNS
 import com.peknight.acme.order.{FinalizeClaims, Order, OrderClaims}
 import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.error.Error
@@ -39,25 +37,21 @@ trait ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge]:
   : F[Either[Error, (Authorization[Challenge], Uri)]]
   def queryChallenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, HttpResponse[Challenge]]]
   def updateChallenge(challengeUri: Uri, keyPair: KeyPair, accountLocation: Uri): F[Either[Error, Challenge]]
-  def acceptChallenge[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, A](authorization: Authorization[Challenge], publicKey: PublicKey)
-                                                                                     (ci: Authorization[Challenge] => Either[Error, (I, C)])
-                                                                                     (f: (I, C, PublicKey) => F[Either[Error, Option[A]]])
-  : F[Either[Error, Option[(I, C, Option[A])]]]
-  def getDnsIdentifierAndChallenge(authorization: Authorization[Challenge]): Either[Error, (DNS, `dns-01`)]
+  def acceptChallenge[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, Record](
+    authorization: Authorization[Challenge], publicKey: PublicKey
+  )(using challengeClient: ChallengeClient[F, Challenge, I, C, Record]): F[Either[Error, Option[(I, C, Option[Record])]]]
   def downloadCertificate(certificateUri: Uri, keyPair: KeyPair, accountLocation: Uri)
   : F[Either[Error, (NonEmptyList[X509Certificate], Option[List[Uri]])]]
   def revokeCertificate(certificate: Certificate, keyPair: KeyPair, accountLocation: Uri,
                         reason: Option[ReasonCode] = None): F[Either[Error, Unit]]
-  def fetchCertificate[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, A](
+  def fetchCertificate[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, Record](
     identifiers: NonEmptyList[Identifier],
     accountKeyPair: F[Either[Error, KeyPair]],
     domainKeyPair: F[Either[Error, KeyPair]],
-    sleepAfterPrepare: Duration = 2.minutes,
+    sleepAfterPrepare: FiniteDuration = 2.minutes,
     queryChallengeTimeout: FiniteDuration = 1.minutes,
     queryChallengeInterval: FiniteDuration = 3.seconds,
     queryOrderTimeout: FiniteDuration = 1.minutes,
     queryOrderInterval: FiniteDuration = 3.seconds
-  )(ic: Authorization[Challenge] => Either[Error, (I, C)]
-  )(prepare: (I, C, PublicKey) => F[Either[Error, Option[A]]]
-  )(clean: (I, C, Option[A]) => F[Either[Error, Unit]]): F[Either[Error, ACMEContext[Challenge]]]
+  )(using challengeClient: ChallengeClient[F, Challenge, I, C, Record]): F[Either[Error, ACMEContext[Challenge]]]
 end ACMEClient

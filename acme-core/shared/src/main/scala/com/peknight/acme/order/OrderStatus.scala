@@ -1,8 +1,8 @@
 package com.peknight.acme.order
 
-import cats.{Applicative, Eq}
+import cats.{Applicative, Eq, Show}
 import com.peknight.codec.Codec
-import com.peknight.codec.configuration.CodecConfiguration
+import com.peknight.codec.config.CodecConfig
 import com.peknight.codec.cursor.Cursor
 import com.peknight.codec.derivation.EnumCodecDerivation
 import com.peknight.codec.sum.StringType
@@ -43,7 +43,8 @@ end OrderStatus
 object OrderStatus:
   given eqOrderStatus: Eq[OrderStatus] = Eq.fromUniversalEquals[OrderStatus]
   given stringCodecOrderStatus[F[_]: Applicative]: Codec[F, String, String, OrderStatus] =
-    EnumCodecDerivation.unsafeDerivedStringCodecEnum[F, OrderStatus](using CodecConfiguration.default)
-  given codecOrderStatus[F[_]: Applicative, S: StringType]: Codec[F, S, Cursor[S], OrderStatus] =
+    EnumCodecDerivation.unsafeDerivedStringCodecEnum[F, OrderStatus](using CodecConfig.default)
+  given codecOrderStatus[F[_]: Applicative, S: {StringType, Show}]: Codec[F, S, Cursor[S], OrderStatus] =
     Codec.codecS[F, S, OrderStatus]
+  given showOrderStatus: Show[OrderStatus] = Show.fromToString[OrderStatus]
 end OrderStatus

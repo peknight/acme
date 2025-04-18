@@ -16,7 +16,7 @@ import com.peknight.jose.jwa.signature.*
 import com.peknight.jose.jwk.JsonWebKey.{AsymmetricJsonWebKey, EllipticCurveJsonWebKey, RSAJsonWebKey}
 import com.peknight.jose.jwk.{JsonWebKey, KeyId}
 import com.peknight.jose.jws.JsonWebSignature
-import com.peknight.jose.jwx.{JoseConfiguration, JoseHeader}
+import com.peknight.jose.jwx.{JoseConfig, JoseHeader}
 import io.circe.Json
 import org.http4s.Uri
 
@@ -58,7 +58,7 @@ package object jose:
         keyJwk <- JsonWebKey.fromPublicKey(accountKey).eLiftET[F]
         jws <- EitherT(JsonWebSignature.signJson[F, AsymmetricJsonWebKey](JoseHeader.withExt(JWSHeaderExt(url),
           Some(macAlgorithm), keyID = Some(keyId)), keyJwk, Some(macKey),
-          JoseConfiguration(doKeyValidation = false)))
+          JoseConfig(doKeyValidation = false)))
         jws <- jws.excludeHeader.eLiftET[F]
       yield
         jws

@@ -54,6 +54,8 @@ lazy val acmeClient = (project in file("acme-client"))
     acmeClientLetsEncrypt.js,
     acmeClientCloudflare.jvm,
     acmeClientCloudflare.js,
+    acmeClientResource.jvm,
+    acmeClientResource.js,
   )
   .settings(commonSettings)
   .settings(
@@ -132,6 +134,17 @@ lazy val acmeClientCloudflare = (crossProject(JSPlatform, JVMPlatform) in file("
     libraryDependencies ++= Seq(
       log4CatsSlf4j,
     )
+  )
+
+lazy val acmeClientResource = (crossProject(JSPlatform, JVMPlatform) in file("acme-client/resource"))
+  .dependsOn(
+    acmeClientApi,
+  )
+  .settings(commonSettings)
+  .settings(
+    name := "acme-client-resource",
+    libraryDependencies ++= Seq(
+    ),
   )
 
 val http4sVersion = "1.0.0-M34"

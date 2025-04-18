@@ -1,10 +1,10 @@
 package com.peknight.acme.jose
 
-import cats.Monad
+import cats.{Monad, Show}
 import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.codec.circe.iso.codec
 import com.peknight.codec.circe.sum.jsonType.given
-import com.peknight.codec.configuration.given
+import com.peknight.codec.config.given
 import com.peknight.codec.cursor.Cursor
 import com.peknight.codec.http4s.instances.uri.given
 import com.peknight.codec.sum.*
@@ -14,7 +14,7 @@ import org.http4s.Uri
 
 case class JWSHeaderExt(url: Uri, nonce: Option[Base64UrlNoPad] = None)
 object JWSHeaderExt:
-  given codecJWSHeaderExt[F[_], S](using Monad[F], ObjectType[S], NullType[S], StringType[S])
+  given codecJWSHeaderExt[F[_]: Monad, S: {ObjectType, NullType, StringType, Show}]
   : Codec[F, S, Cursor[S], JWSHeaderExt] =
     Codec.derived[F, S, JWSHeaderExt]
   given jsonCodecJWSHeaderExt[F[_]: Monad]: Codec[F, Json, Cursor[Json], JWSHeaderExt] =

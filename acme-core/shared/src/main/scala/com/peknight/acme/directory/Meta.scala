@@ -1,12 +1,12 @@
 package com.peknight.acme.directory
 
-import cats.{Id, Monad}
+import cats.{Id, Monad, Show}
 import com.comcast.ip4s.Host
 import com.peknight.codec.circe.Ext
 import com.peknight.codec.circe.iso.codec
 import com.peknight.codec.syntax.encoder.asS
 import com.peknight.codec.circe.sum.jsonType.given
-import com.peknight.codec.configuration.CodecConfiguration
+import com.peknight.codec.config.CodecConfig
 import com.peknight.codec.cursor.Cursor
 import com.peknight.codec.http4s.instances.uri.given
 import com.peknight.codec.ip4s.instances.host.given
@@ -43,9 +43,9 @@ object Meta:
     "allowCertificateGet" -> "allow-certificate-get"
   )
   given codecMeta[F[_], S](using Monad[F], ObjectType[S], NullType[S], ArrayType[S], BooleanType[S], NumberType[S],
-                           StringType[S], Encoder[F, S, JsonObject], Decoder[F, Cursor[S], JsonObject])
+                           StringType[S], Encoder[F, S, JsonObject], Decoder[F, Cursor[S], JsonObject], Show[S])
   : Codec[F, S, Cursor[S], Meta] =
-    given CodecConfiguration = CodecConfiguration.default
+    given CodecConfig = CodecConfig.default
       .withTransformMemberName(memberName => memberNameMap.getOrElse(memberName, memberName))
       .withExtField("ext")
     Codec.derived[F, S, Meta]

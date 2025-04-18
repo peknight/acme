@@ -3,6 +3,7 @@ package com.peknight.acme.client.http4s
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.*
 import cats.syntax.applicative.*
+import cats.syntax.contravariant.*
 import cats.syntax.either.*
 import cats.syntax.eq.*
 import cats.syntax.flatMap.*
@@ -14,28 +15,27 @@ import com.peknight.acme.account.{Account, AccountClaims, AccountStatus, KeyChan
 import com.peknight.acme.authorization.{Authorization, AuthorizationClaims, AuthorizationStatus, PreAuthorizationClaims}
 import com.peknight.acme.bouncycastle.pkcs.PKCS10CertificationRequest
 import com.peknight.acme.certificate.RevokeClaims
-import com.peknight.acme.challenge.Challenge.`dns-01`
 import com.peknight.acme.challenge.{ChallengeClaims, ChallengeStatus}
 import com.peknight.acme.client.api
+import com.peknight.acme.client.api.ChallengeClient
 import com.peknight.acme.client.error.*
 import com.peknight.acme.client.jose.{signEmptyString, signJson}
 import com.peknight.acme.context.ACMEContext
 import com.peknight.acme.directory.Directory
 import com.peknight.acme.identifier.Identifier
-import com.peknight.acme.identifier.Identifier.DNS
 import com.peknight.acme.identifier.IdentifierType.dns
+import com.peknight.acme.instances.keyPair.given
+import com.peknight.acme.instances.x509Certificate.given
 import com.peknight.acme.order.*
 import com.peknight.cats.effect.ext.Clock
 import com.peknight.cats.ext.syntax.eitherT.{eLiftET, lLiftET, rLiftET}
 import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.codec.cursor.Cursor
-import com.peknight.codec.syntax.encoder.asS
 import com.peknight.codec.{Decoder, Encoder}
 import com.peknight.commons.time.syntax.temporal.plus
 import com.peknight.error.Error
 import com.peknight.error.option.OptionEmpty
 import com.peknight.error.syntax.applicativeError.asError
-import com.peknight.error.syntax.either.label
 import com.peknight.http.HttpResponse
 import com.peknight.http.syntax.eitherF.retry
 import com.peknight.jose.jwk.{JsonWebKey, KeyId}
@@ -43,10 +43,11 @@ import com.peknight.jose.jws.JsonWebSignature
 import com.peknight.logging.syntax.either.log
 import com.peknight.logging.syntax.eitherF.log
 import com.peknight.logging.syntax.eitherT.log
+import com.peknight.method.retry.{Retry, RetryState}
 import com.peknight.security.certificate.revocation.list.ReasonCode
-import com.peknight.validation.collection.list.either.one
-import com.peknight.validation.std.either.{isTrue, typed}
+import com.peknight.validation.std.either.isTrue
 import io.circe.Json
+import org.bouncycastle.asn1.x509.GeneralNames
 import org.http4s.Uri
 import org.http4s.client.Client
 import org.typelevel.log4cats.Logger
@@ -64,8 +65,11 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
   acmeApi: api.ACMEApi[F],
   nonceRef: Ref[F, Option[Base64UrlNoPad]],
   directoryRef: Ref[F, Option[HttpResponse[Directory]]]
-)(using Async[F], Parallel[F], Logger[F], Decoder[Id, Cursor[Json], Challenge]) extends api.ACMEClient[F, Challenge]:
-  private given [X]: Show[X] = Show.fromToString[X]
+)(using Async[F], Parallel[F], Logger[F], Decoder[Id, Cursor[Json], Challenge], Show[Challenge])
+  extends api.ACMEClient[F, Challenge]:
+
+  private given Show[RetryState] = Show.fromToString[RetryState]
+  private given Show[Retry] = Show.fromToString[Retry]
 
   def directory: F[Either[Error, Directory]] =
     val eitherT =
@@ -166,13 +170,14 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
 
   private def queryOrderRetry(orderLocation: Uri, keyPair: KeyPair, accountLocation: Uri)
                              (timeout: FiniteDuration = 1.minutes, interval: FiniteDuration = 3.seconds,
-                              statusSet: Set[OrderStatus]): F[Either[Error, Order]] =
+                              statusSet: Set[OrderStatus]): F[Either[Error, Order]] = {
     queryOrder(orderLocation, keyPair, accountLocation)
       .log("ACMEClient#queryOrder", orderLocation.some)
       .retry(timeout = timeout.some, interval = interval.some)(
         _.map(_.body.status).exists(statusSet.contains)
       )((either, state, retry) => either.log("ACMEClient#queryOrder#retry", (state, retry).some))
       .map(_.map(_.body))
+  }
 
   def finalizeOrder(finalizeUri: Uri, claims: FinalizeClaims, keyPair: KeyPair, accountLocation: Uri)
   : F[Either[Error, Order]] =
@@ -220,29 +225,19 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
       acmeApi.challenge[Challenge]
     ).map(_.map(_.body))
 
-  def acceptChallenge[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, A](authorization: Authorization[Challenge], publicKey: PublicKey)
-                                                                                     (ic: Authorization[Challenge] => Either[Error, (I, C)])
-                                                                                     (prepare: (I, C, PublicKey) => F[Either[Error, Option[A]]])
-  : F[Either[Error, Option[(I, C, Option[A])]]] =
+  def acceptChallenge[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, Record](
+    authorization: Authorization[Challenge], publicKey: PublicKey
+  )(using challengeClient: ChallengeClient[F, Challenge, I, C, Record])
+  : F[Either[Error, Option[(I, C, Option[Record])]]] =
     if authorization.status === AuthorizationStatus.valid then
-      none[(I, C, Option[A])].asRight[Error].pure[F]
+      none[(I, C, Option[Record])].asRight[Error].pure[F]
     else
-      ic(authorization) match
+      challengeClient.getIdentifierAndChallenge(authorization) match
         case Right((identifier, challenge)) =>
-          if challenge.status === ChallengeStatus.valid then none[(I, C, Option[A])].asRight[Error].pure[F]
-          else prepare(identifier, challenge, publicKey).map(_.map((identifier, challenge, _).some))
-        case Left(error) => error.asLeft[Option[(I, C, Option[A])]].pure[F]
+          if challenge.status === ChallengeStatus.valid then none[(I, C, Option[Record])].asRight[Error].pure[F]
+          else challengeClient.prepare(identifier, challenge, publicKey).map(_.map((identifier, challenge, _).some))
+        case Left(error) => error.asLeft[Option[(I, C, Option[Record])]].pure[F]
   end acceptChallenge
-
-  def getDnsIdentifierAndChallenge(authorization: Authorization[Challenge]): Either[Error, (DNS, `dns-01`)] =
-    for
-      identifier <- typed[DNS](authorization.identifier).label("identifier")
-      dnsChallenges: List[`dns-01`] = authorization.challenges.collect {
-        case challenge: `dns-01` => challenge
-      }
-      challenge <- one(dnsChallenges).label("dnsChallenges")
-    yield
-      (identifier, challenge)
 
   def downloadCertificate(certificateUri: Uri, keyPair: KeyPair, accountLocation: Uri)
   : F[Either[Error, (NonEmptyList[X509Certificate], Option[List[Uri]])]] =
@@ -262,24 +257,24 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
         response
     eitherT.value
 
-  def fetchCertificate[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, A](
+  def fetchCertificate[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, Record](
     identifiers: NonEmptyList[Identifier],
     accountKeyPair: F[Either[Error, KeyPair]],
     domainKeyPair: F[Either[Error, KeyPair]],
-    sleepAfterPrepare: Duration = 2.minutes,
+    sleepAfterPrepare: FiniteDuration = 2.minutes,
     queryChallengeTimeout: FiniteDuration = 1.minutes,
     queryChallengeInterval: FiniteDuration = 3.seconds,
     queryOrderTimeout: FiniteDuration = 1.minutes,
     queryOrderInterval: FiniteDuration = 3.seconds
-  )(ic: Authorization[Challenge] => Either[Error, (I, C)]
-  )(prepare: (I, C, PublicKey) => F[Either[Error, Option[A]]]
-  )(clean: (I, C, Option[A]) => F[Either[Error, Unit]]): F[Either[Error, ACMEContext[Challenge]]] =
-    given Show[KeyPair] = Show.show(keyPair =>
-      JsonWebKey.fromKeyPair(keyPair).map(_.asS[Id, Json].deepDropNullValues.noSpaces).getOrElse(keyPair.toString)
-    )
+  )(using challengeClient: ChallengeClient[F, Challenge, I, C, Record])
+  : F[Either[Error, ACMEContext[Challenge]]] =
+    given Show[I] = Identifier.showIdentifier.contramap(_.asInstanceOf)
+    given Show[C] = Show[Challenge].contramap(_.asInstanceOf)
+    given Show[Record] = Show.fromToString[Record]
+    given Show[GeneralNames] = Show.show(_.getNames.mkString("GeneralNames(", ",", ")"))
     val eitherT =
       for
-        accountKeyPair <- EitherT(accountKeyPair).log("ACMEClient#accountKeyPair")
+        accountKeyPair <- EitherT(accountKeyPair).log[Unit]("ACMEClient#accountKeyPair")
         accountClaims = AccountClaims(termsOfServiceAgreed = true.some)
         (account, accountLocation) <- EitherT(newAccount(accountClaims, accountKeyPair))
           .log("ACMEClient#newAccount", accountClaims.some)
@@ -290,12 +285,12 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
           for
             authorization <- EitherT(queryAuthorization(authorizationUri, accountKeyPair, accountLocation))
               .log("ACMEClient#queryAuthorization", authorizationUri.some)
-            authorization <- Resource.make[[X] =>> EitherT[F, Error, X], Option[(I, C, Option[A])]](
-              EitherT(acceptChallenge[I, C, A](authorization, accountKeyPair.getPublic)(ic)(prepare))
+            authorization <- Resource.make[[X] =>> EitherT[F, Error, X], Option[(I, C, Option[Record])]] {
+              EitherT(acceptChallenge[I, C, Record](authorization, accountKeyPair.getPublic))
                 .log("ACMEClient#acceptChallenge", authorization.some)
-            ){
+            }{
               case Some((identifier, challenge, a)) =>
-                EitherT(clean(identifier, challenge, a))
+                EitherT(challengeClient.clean(identifier, challenge, a))
                   .log("ACMEClient#clean", (identifier, challenge, a).some)
               case None => EitherT.pure(())
             }.use {
@@ -331,7 +326,7 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
           queryOrderInterval, Set(OrderStatus.ready, OrderStatus.valid, OrderStatus.invalid)))
         _ <- isTrue(order.status === OrderStatus.ready, OrderStatusNotReady(order.status)).eLiftET
         generalNames <- order.toGeneralNames.eLiftET
-        domainKeyPair <- EitherT(domainKeyPair).log("ACMEClient#domainKeyPair")
+        domainKeyPair <- EitherT(domainKeyPair).log[Unit]("ACMEClient#domainKeyPair")
         csr <- EitherT(PKCS10CertificationRequest.certificateSigningRequest[F](generalNames, domainKeyPair))
           .map(csr => Base64UrlNoPad.fromByteVector(ByteVector(csr.getEncoded)))
           .log("ACMEClient#certificateSigningRequest", generalNames.some)
@@ -355,7 +350,7 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
       yield
         ACMEContext(accountKeyPair, domainKeyPair, certificates, account, accountLocation, order, orderLocation,
           authorizations, alternates)
-    eitherT.value
+    eitherT.log("ACMEClient#fetchCertificate", identifiers.some).value
 
   private def postAsGet[A, B](uri: Uri, payload: A, keyPair: KeyPair, accountLocation: Option[Uri] = None)
                              (f: (JsonWebSignature, Uri) => F[Either[Error, B]])
@@ -384,17 +379,21 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
 end ACMEClient
 object ACMEClient:
   def apply[F[_], Challenge <: com.peknight.acme.challenge.Challenge](directoryUri: Uri,
-                                                                      directoryMaxAge: FiniteDuration = 10.minutes)
+                                                                      directoryMaxAge: FiniteDuration = 10.minutes,
+                                                                      locale: Option[Locale] = None,
+                                                                      compression: Boolean = true
+                                                                     )
                                                                      (using Client[F], Async[F], Parallel[F],
-                                                                      Decoder[Id, Cursor[Json], Challenge])
-  : F[api.ACMEClient[F, Challenge]] =
+                                                                      Decoder[Id, Cursor[Json], Challenge],
+                                                                      Show[Challenge])
+  : F[ACMEClient[F, Challenge]] =
     for
-      locale <- Sync[F].blocking(Locale.getDefault)
+      locale <- locale.fold(Sync[F].blocking(Locale.getDefault))(_.pure[F])
       nonceRef <- Ref[F].of(none[Base64UrlNoPad])
       directoryRef <- Ref[F].of(none[HttpResponse[Directory]])
       logger <- Slf4jLogger.fromClass[F](ACMEClient.getClass)
       given Logger[F] = logger
-      acmeApi = ACMEApi[F](locale, true, nonceRef, directoryRef)
+      acmeApi = ACMEApi[F](locale, compression, nonceRef, directoryRef)
     yield
       new ACMEClient[F, Challenge](directoryUri, directoryMaxAge, acmeApi, nonceRef, directoryRef)
 end ACMEClient

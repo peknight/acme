@@ -1,11 +1,11 @@
 package com.peknight.acme.challenge
 
-import cats.{Applicative, Eq}
-import com.peknight.codec.Codec
-import com.peknight.codec.configuration.CodecConfiguration
+import cats.{Applicative, Eq, Show}
+import com.peknight.codec.config.CodecConfig
 import com.peknight.codec.cursor.Cursor
 import com.peknight.codec.derivation.EnumCodecDerivation
 import com.peknight.codec.sum.StringType
+import com.peknight.codec.{Codec, Decoder, Encoder}
 
 /**
  * Challenge objects are created in the "pending" state.  They
@@ -42,7 +42,10 @@ end ChallengeStatus
 object ChallengeStatus:
   given eqChallengeStatus: Eq[ChallengeStatus] = Eq.fromUniversalEquals[ChallengeStatus]
   given stringCodecChallengeStatus[F[_]: Applicative]: Codec[F, String, String, ChallengeStatus] =
-    EnumCodecDerivation.unsafeDerivedStringCodecEnum[F, ChallengeStatus](using CodecConfiguration.default)
-  given codecChallengeStatus[F[_]: Applicative, S: StringType]: Codec[F, S, Cursor[S], ChallengeStatus] =
-    Codec.codecS[F, S, ChallengeStatus]
+    EnumCodecDerivation.unsafeDerivedStringCodecEnum[F, ChallengeStatus](using CodecConfig.default)
+  given encodeChallengeStatus[F[_]: Applicative, S: StringType]: Encoder[F, S, ChallengeStatus] =
+    Encoder.encodeS[F, S, ChallengeStatus]
+  given decodeChallengeStatus[F[_]: Applicative, S: {StringType, Show}]: Decoder[F, Cursor[S], ChallengeStatus] =
+    Decoder.decodeS[F, S, ChallengeStatus]
+  given showChallengeStatus: Show[ChallengeStatus] = Show.fromToString[ChallengeStatus]  
 end ChallengeStatus

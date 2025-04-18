@@ -1,8 +1,8 @@
 package com.peknight.acme.account
 
-import cats.Applicative
+import cats.{Applicative, Show}
 import com.peknight.codec.Codec
-import com.peknight.codec.configuration.CodecConfiguration
+import com.peknight.codec.config.CodecConfig
 import com.peknight.codec.cursor.Cursor
 import com.peknight.codec.derivation.EnumCodecDerivation
 import com.peknight.codec.sum.StringType
@@ -27,7 +27,8 @@ enum AccountStatus:
 end AccountStatus
 object AccountStatus:
   given stringCodecAccountStatus[F[_]: Applicative]: Codec[F, String, String, AccountStatus] =
-    EnumCodecDerivation.unsafeDerivedStringCodecEnum[F, AccountStatus](using CodecConfiguration.default)
-  given codecAccountStatus[F[_]: Applicative, S: StringType]: Codec[F, S, Cursor[S], AccountStatus] =
+    EnumCodecDerivation.unsafeDerivedStringCodecEnum[F, AccountStatus](using CodecConfig.default)
+  given codecAccountStatus[F[_]: Applicative, S: {StringType, Show}]: Codec[F, S, Cursor[S], AccountStatus] =
     Codec.codecS[F, S, AccountStatus]
+  given showAccountStatus: Show[AccountStatus] = Show.fromToString[AccountStatus]
 end AccountStatus

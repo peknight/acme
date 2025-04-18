@@ -1,8 +1,8 @@
 package com.peknight.acme.error
 
-import cats.Applicative
+import cats.{Applicative, Show}
 import com.peknight.codec.Codec
-import com.peknight.codec.configuration.CodecConfiguration
+import com.peknight.codec.config.CodecConfig
 import com.peknight.codec.cursor.Cursor
 import com.peknight.codec.derivation.EnumCodecDerivation
 import com.peknight.codec.sum.StringType
@@ -66,7 +66,7 @@ enum ACMEErrorType:
   autoRenewalCancellationInvalid,
   // A request to revoke an auto-renewal Order has been received [RFC8739]
   autoRenewalRevocationNotSupported,
-  // An unknown configuration is listed in the delegation attribute of the order request [RFC9115]
+  // An unknown config is listed in the delegation attribute of the order request [RFC9115]
   unknownDelegation,
   // The CA only supports checking CAA for hidden services in-band, but the client has not provided an in-band CAA [RFC-ietf-acme-onion-07]
   onionCAARequired
@@ -74,7 +74,7 @@ enum ACMEErrorType:
 end ACMEErrorType
 object ACMEErrorType extends App:
   given stringCodecACMEErrorType[F[_]: Applicative]: Codec[F, String, String, ACMEErrorType] =
-    EnumCodecDerivation.unsafeDerivedStringCodecEnum[F, ACMEErrorType](using CodecConfiguration.default)
-  given codecACMEErrorType[F[_]: Applicative, S: StringType]: Codec[F, S, Cursor[S], ACMEErrorType] =
+    EnumCodecDerivation.unsafeDerivedStringCodecEnum[F, ACMEErrorType](using CodecConfig.default)
+  given codecACMEErrorType[F[_]: Applicative, S: {StringType, Show}]: Codec[F, S, Cursor[S], ACMEErrorType] =
     Codec.codecS[F, S, ACMEErrorType]
 end ACMEErrorType
