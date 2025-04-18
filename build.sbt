@@ -158,7 +158,7 @@ lazy val acmeClientApp = (crossProject(JSPlatform, JVMPlatform) in file("acme-cl
   )
   .settings(commonSettings)
   .settings(
-    name := "acme-client-resource",
+    name := "acme-client-app",
     libraryDependencies ++= Seq(
       "com.peknight" %%% "codec-effect" % pekCodecVersion,
       "com.peknight" %%% "codec-fs2-io" % pekCodecVersion,

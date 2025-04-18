@@ -1,5 +1,6 @@
 package com.peknight.acme.client.app.context
 
+import cats.Show
 import cats.data.NonEmptyList
 import com.peknight.acme.client.app.config.AppConfig
 import com.peknight.acme.client.cloudflare.CloudflareDNSChallengeClient
@@ -26,3 +27,8 @@ case class ServerContext[F[_]](
                                 keyStore: KeyStore,
                                 provider: BouncyCastleProvider
                               )
+object ServerContext:
+  given showServerContext[F[_]]: Show[ServerContext[F]] with
+    def show(t: ServerContext[F]): String = "ServerContext(...)"
+  end showServerContext
+end ServerContext
