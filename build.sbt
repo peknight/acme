@@ -56,6 +56,8 @@ lazy val acmeClient = (project in file("acme-client"))
     acmeClientCloudflare.js,
     acmeClientResource.jvm,
     acmeClientResource.js,
+    acmeClientApp.jvm,
+    acmeClientApp.js,
   )
   .settings(commonSettings)
   .settings(
@@ -144,6 +146,26 @@ lazy val acmeClientResource = (crossProject(JSPlatform, JVMPlatform) in file("ac
   .settings(
     name := "acme-client-resource",
     libraryDependencies ++= Seq(
+    ),
+  )
+
+lazy val acmeClientApp = (crossProject(JSPlatform, JVMPlatform) in file("acme-client/app"))
+  .dependsOn(
+    acmeClientResource,
+    acmeClientHttp4s,
+    acmeClientLetsEncrypt,
+    acmeClientCloudflare,
+  )
+  .settings(commonSettings)
+  .settings(
+    name := "acme-client-resource",
+    libraryDependencies ++= Seq(
+      "com.peknight" %%% "codec-effect" % pekCodecVersion,
+      "com.peknight" %%% "codec-fs2-io" % pekCodecVersion,
+      "com.peknight.cloudflare" %%% "dns-record-http4s" % pekCloudflareVersion,
+      "com.peknight.cloudflare" %%% "zone-codec-instances" % pekCloudflareVersion,
+      "org.http4s" %%% "http4s-ember-server" % http4sVersion,
+      "org.http4s" %%% "http4s-ember-client" % http4sVersion,
     ),
   )
 
