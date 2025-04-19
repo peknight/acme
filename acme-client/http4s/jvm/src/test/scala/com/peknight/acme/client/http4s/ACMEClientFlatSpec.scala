@@ -17,11 +17,12 @@ import com.peknight.cloudflare.dns.record.DNSRecordId
 import com.peknight.cloudflare.dns.record.http4s.DNSRecordApi
 import com.peknight.cloudflare.test.{pekToken, pekZoneId}
 import com.peknight.error.syntax.applicativeError.asError
+import com.peknight.logging.syntax.eitherT.log
 import com.peknight.security.Security
 import com.peknight.security.bouncycastle.jce.provider.BouncyCastleProvider
 import com.peknight.security.bouncycastle.openssl.{fetchKeyPair, fetchX509CertificatesAndKeyPair}
 import com.peknight.security.cipher.RSA
-import com.peknight.security.ecc.sec.secp384r1
+import com.peknight.security.ecc.sec.secp256r1
 import fs2.io.file.Path
 import org.http4s.*
 import org.http4s.client.Client
@@ -52,7 +53,7 @@ class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 dnsChallengeClient <- EitherT(CloudflareDNSChallengeClient[IO, Challenge](pekZoneId).asError)
                 given CloudflareDNSChallengeClient[IO, Challenge] = dnsChallengeClient
                 accountKeyPair <- EitherT(fetchKeyPair[IO](Path("cert/account.key"))(
-                  RSA.keySizeGenerateKeyPair[IO](4096, provider = provider.some).asError))
+                  secp256r1.generateKeyPair[IO](provider = provider.some).asError))
                 certificates <- EitherT(fetchX509CertificatesAndKeyPair[IO](Path("cert/domain.crt"),
                   Path("cert/domain.key"), provider.some) {
                   val et =
@@ -63,7 +64,7 @@ class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                       context <- EitherT(acmeClient.fetchCertificate[DNS, `dns-01`, DNSRecordId](
                         identifiers,
                         accountKeyPair.asRight.pure,
-                        secp384r1.generateKeyPair[IO](provider = provider.some).asError
+                        RSA.keySizeGenerateKeyPair[IO](4096, provider = provider.some).asError
                       ))
                     yield
                       (context.certificates, context.domainKeyPair)
@@ -71,7 +72,7 @@ class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 })
               yield
                 ()
-            eitherT.value
+            eitherT.log[Unit]("ACMEClientFlatSpec#run").value
           }
       yield either
     run.asserting(either => assert(either.isRight))
