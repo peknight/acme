@@ -24,8 +24,6 @@ import com.peknight.acme.context.ACMEContext
 import com.peknight.acme.directory.Directory
 import com.peknight.acme.identifier.Identifier
 import com.peknight.acme.identifier.IdentifierType.dns
-import com.peknight.acme.instances.keyPair.given
-import com.peknight.acme.instances.x509Certificate.given
 import com.peknight.acme.order.*
 import com.peknight.cats.effect.ext.Clock
 import com.peknight.cats.ext.syntax.eitherT.{eLiftET, lLiftET, rLiftET}
@@ -45,6 +43,7 @@ import com.peknight.logging.syntax.eitherF.log
 import com.peknight.logging.syntax.eitherT.log
 import com.peknight.method.retry.{Retry, RetryState}
 import com.peknight.security.certificate.revocation.list.ReasonCode
+import com.peknight.security.certificate.showCertificate
 import com.peknight.validation.std.either.isTrue
 import io.circe.Json
 import org.bouncycastle.asn1.x509.GeneralNames
@@ -70,6 +69,8 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
 
   private given Show[RetryState] = Show.fromToString[RetryState]
   private given Show[Retry] = Show.fromToString[Retry]
+  private given Show[KeyPair] = JsonWebKey.showKeyPair[KeyPair]
+  private given Show[X509Certificate] = showCertificate
 
   def directory: F[Either[Error, Directory]] =
     val eitherT =
