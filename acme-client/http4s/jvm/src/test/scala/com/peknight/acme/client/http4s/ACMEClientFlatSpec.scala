@@ -77,4 +77,68 @@ class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
       yield either
     run.asserting(either => assert(either.isRight))
   }
+
+  "Fetch KeyPair" should "succeed" in {
+    import cats.Monad
+    import com.peknight.error.Error
+    import com.peknight.error.std.WrongClassTag
+    import com.peknight.security.bouncycastle.openssl.jcajce.JcaPEMKeyConverter
+    import com.peknight.security.bouncycastle.openssl.{readPEM, writePEM}
+    import com.peknight.security.bouncycastle.pkix.syntax.jcaPEMKeyConverter.getKeyPairF
+    import com.peknight.security.bouncycastle.pkix.syntax.jcaPEMWriter.writeObjectF
+    import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo
+    import org.bouncycastle.openssl.PEMKeyPair
+
+    import java.security.KeyPair
+    val eitherT =
+      for
+        logger <- EitherT(Slf4jLogger.fromClass[IO](classOf[ACMEClientFlatSpec]).asError)
+        given Logger[IO] = logger
+        provider <- EitherT(BouncyCastleProvider[IO].asError)
+        _ <- EitherT(Security.addProvider[IO](provider).asError)
+        keyPair <- EitherT(secp256r1.generateKeyPair[IO]().asError)
+        _ <- EitherT(writePEM[IO](Path("cert/test.key")) {writer =>
+          for
+            _ <- writer.writeObjectF[IO](keyPair.getPublic)
+            _ <- writer.writeObjectF[IO](keyPair.getPrivate)
+          yield
+            ()
+        })
+        keyPair <- EitherT(readPEM[IO, KeyPair](Path("cert/test.key")) { list =>
+          val et =
+            for
+              pemKeyPair <- Monad[[X] =>> Either[Error, X]]
+                .tailRecM[(List[AnyRef], Option[PEMKeyPair], Option[SubjectPublicKeyInfo]), PEMKeyPair](
+                  (list.toList, None, None)
+                ) {
+                  case ((pemKeyPair: PEMKeyPair) :: _, _, _) if Option(pemKeyPair.getPublicKeyInfo).isDefined =>
+                    println("pem with pub")
+                    pemKeyPair.asRight.asRight
+                  case ((pemKeyPair: PEMKeyPair) :: _, _, Some(publicKeyInfo)) =>
+                    println("pem & pub!")
+                    new PEMKeyPair(publicKeyInfo, pemKeyPair.getPrivateKeyInfo).asRight.asRight
+                  case ((publicKeyInfo: SubjectPublicKeyInfo) :: _, Some(pemKeyPair), _) =>
+                    println("pub & pem!")
+                    new PEMKeyPair(publicKeyInfo, pemKeyPair.getPrivateKeyInfo).asRight.asRight
+                  case ((pemKeyPair: PEMKeyPair) :: tail, _, _) =>
+                    println("pem no pub!")
+                    (tail, Some(pemKeyPair), None).asLeft.asRight
+                  case ((publicKeyInfo: SubjectPublicKeyInfo) :: tail, _, _) =>
+                    println("pub no pem!")
+                    (tail, None, Some(publicKeyInfo)).asLeft.asRight
+                  case (head :: tail, pemKeyPairOption, publicKeyInfoOption) =>
+                    println(s"${head.getClass}: $head")
+                    (tail, pemKeyPairOption, publicKeyInfoOption).asLeft.asRight
+                  case (Nil, _, _) => WrongClassTag[KeyPair](list.head).asLeft
+                }.eLiftET[IO]
+              keyPair <- EitherT(JcaPEMKeyConverter(provider = none).getKeyPairF[IO](pemKeyPair).asError)
+            yield
+              keyPair
+          et.value
+        })
+      yield
+        println(keyPair)
+        ()
+    eitherT.value.rethrow.asserting(_ => assert(true))
+  }
 end ACMEClientFlatSpec
