@@ -63,7 +63,8 @@ object ScheduledServer:
         fetchKeyPair[F](config.acme.accountKeyPath)(secp256r1.generateKeyPair[F](provider = provider.some).asError),
         RSA.keySizeGenerateKeyPair[F](4096, provider = provider.some).asError,
         Source[F, (NonEmptyList[X509Certificate], KeyPair)](
-          readX509CertificatesAndKeyPair(config.acme.certificatePath, config.acme.domainKeyPath, provider.some),
+          readX509CertificatesAndKeyPair(config.acme.certificatePath, config.acme.domainKeyPath, provider.some,
+            provider.some),
           writeX509CertificatesAndKeyPair(config.acme.certificatePath, config.acme.domainKeyPath)
         ),
         config.acme.domainIdentifiers, config.acme.checkThreshold, config.keyStore.alias, config.keyStore.keyPassword,

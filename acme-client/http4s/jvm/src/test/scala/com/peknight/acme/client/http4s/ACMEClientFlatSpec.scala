@@ -55,7 +55,7 @@ class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 accountKeyPair <- EitherT(fetchKeyPair[IO](Path("cert/account.key"))(
                   secp256r1.generateKeyPair[IO](provider = provider.some).asError))
                 certificates <- EitherT(fetchX509CertificatesAndKeyPair[IO](Path("cert/domain.crt"),
-                  Path("cert/domain.key"), provider.some) {
+                  Path("cert/domain.key"), provider.some, provider.some) {
                   val et =
                     for
                       identifiers <- NonEmptyList.of(
