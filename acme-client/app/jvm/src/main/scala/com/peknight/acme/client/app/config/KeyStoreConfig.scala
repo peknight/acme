@@ -1,6 +1,6 @@
 package com.peknight.acme.client.app.config
 
-import cats.effect.Async
+import cats.MonadError
 import cats.effect.std.Env
 import com.peknight.codec.Decoder
 import com.peknight.codec.config.given
@@ -12,6 +12,6 @@ case class KeyStoreConfig(
                            keyPassword: String = ""
                          )
 object KeyStoreConfig:
-  given decodeKeyStoreConfigKey[F[_]: {Async, Env}]: Decoder[F, Key, KeyStoreConfig] =
+  given decodeKeyStoreConfigKey[F[_]](using MonadError[F, Throwable], Env[F]): Decoder[F, Key, KeyStoreConfig] =
     Decoder.derivedByKey[F, KeyStoreConfig]
 end KeyStoreConfig

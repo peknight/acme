@@ -1,7 +1,7 @@
 package com.peknight.acme.client.app.config
 
+import cats.MonadError
 import cats.data.NonEmptyList
-import cats.effect.Async
 import cats.effect.std.Env
 import com.peknight.acme.client.letsencrypt.uri.acmeStaging
 import com.peknight.acme.identifier.Identifier.{DNS, stringDecodeDNS}
@@ -35,7 +35,7 @@ case class ACMEConfig(
                        compression: Boolean = true
                      )
 object ACMEConfig:
-  given decodeACMEConfigKey[F[_]: {Async, Env}]: Decoder[F, Key, ACMEConfig] =
+  given decodeACMEConfigKey[F[_]](using MonadError[F, Throwable], Env[F]): Decoder[F, Key, ACMEConfig] =
     given decodeNonEmptyListKey: Decoder[F, String, NonEmptyList[DNS]] =
       Decoder.stringDecodeSeq[F, DNS, NonEmptyList](s =>
         nonEmpty(s.split("\\s*,\\s*").toList).left.map(DecodingFailure.apply)

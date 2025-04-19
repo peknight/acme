@@ -1,6 +1,6 @@
 package com.peknight.acme.client.app.config
 
-import cats.effect.Async
+import cats.MonadError
 import cats.effect.std.Env
 import com.peknight.codec.Decoder
 import com.peknight.codec.config.given
@@ -14,6 +14,6 @@ case class AppConfig(
                       cloudflare: CloudflareConfig
                     )
 object AppConfig:
-  given decodeAppConfigKey[F[_]: {Async, Env}]: Decoder[F, Key, AppConfig] =
+  given decodeAppConfigKey[F[_]](using MonadError[F, Throwable], Env[F]): Decoder[F, Key, AppConfig] =
     Decoder.derivedByKey[F, AppConfig]
 end AppConfig

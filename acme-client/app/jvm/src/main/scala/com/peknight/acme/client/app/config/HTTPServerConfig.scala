@@ -1,6 +1,6 @@
 package com.peknight.acme.client.app.config
 
-import cats.effect.Async
+import cats.MonadError
 import cats.effect.std.Env
 import com.comcast.ip4s.{Host, Port, port}
 import com.peknight.codec.Decoder
@@ -17,6 +17,6 @@ case class HTTPServerConfig(
                              logBody: Boolean = true
                            )
 object HTTPServerConfig:
-  given decodeHTTPServerConfigKey[F[_]: {Async, Env}]: Decoder[F, Key, HTTPServerConfig] =
+  given decodeHTTPServerConfigKey[F[_]](using MonadError[F, Throwable], Env[F]): Decoder[F, Key, HTTPServerConfig] =
     Decoder.derivedByKey[F, HTTPServerConfig]
 end HTTPServerConfig
