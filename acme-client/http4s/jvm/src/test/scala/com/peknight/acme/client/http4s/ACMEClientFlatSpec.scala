@@ -21,7 +21,7 @@ import com.peknight.security.Security
 import com.peknight.security.bouncycastle.jce.provider.BouncyCastleProvider
 import com.peknight.security.bouncycastle.openssl.{fetchKeyPair, fetchX509CertificatesAndKeyPair}
 import com.peknight.security.cipher.RSA
-import com.peknight.security.ecc.sec.secp256r1
+import com.peknight.security.ecc.sec.secp384r1
 import fs2.io.file.Path
 import org.http4s.*
 import org.http4s.client.Client
@@ -52,7 +52,7 @@ class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 dnsChallengeClient <- EitherT(CloudflareDNSChallengeClient[IO, Challenge](pekZoneId).asError)
                 given CloudflareDNSChallengeClient[IO, Challenge] = dnsChallengeClient
                 accountKeyPair <- EitherT(fetchKeyPair[IO](Path("cert/account.key"))(
-                  secp256r1.generateKeyPair[IO](provider = provider.some).asError))
+                  RSA.keySizeGenerateKeyPair[IO](4096, provider = provider.some).asError))
                 certificates <- EitherT(fetchX509CertificatesAndKeyPair[IO](Path("cert/domain.crt"),
                   Path("cert/domain.key"), provider.some) {
                   val et =
@@ -63,7 +63,7 @@ class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                       context <- EitherT(acmeClient.fetchCertificate[DNS, `dns-01`, DNSRecordId](
                         identifiers,
                         accountKeyPair.asRight.pure,
-                        RSA.keySizeGenerateKeyPair[IO](4096).asError
+                        secp384r1.generateKeyPair[IO](provider = provider.some).asError
                       ))
                     yield
                       (context.certificates, context.domainKeyPair)
