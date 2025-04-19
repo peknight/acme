@@ -268,8 +268,8 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
     queryOrderInterval: FiniteDuration = 3.seconds
   )(using challengeClient: ChallengeClient[F, Challenge, I, C, Record])
   : F[Either[Error, ACMEContext[Challenge]]] =
-    given Show[I] = Identifier.showIdentifier.contramap(_.asInstanceOf)
-    given Show[C] = Show[Challenge].contramap(_.asInstanceOf)
+    given Show[I] = Identifier.showIdentifier.contramap[I](identity)
+    given Show[C] = Show[Challenge].contramap[C](_.asInstanceOf)
     given Show[Record] = Show.fromToString[Record]
     given Show[GeneralNames] = Show.show(_.getNames.mkString("GeneralNames(", ",", ")"))
     val eitherT =

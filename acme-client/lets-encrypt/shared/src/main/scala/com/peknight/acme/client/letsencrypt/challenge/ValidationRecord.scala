@@ -28,6 +28,6 @@ object ValidationRecord:
 
   given circeCodecValidationRecord: io.circe.Codec[ValidationRecord] = codec[ValidationRecord]
   given showValidationRecord: Show[ValidationRecord] =
-    given Show[Hostname] = Show[Host].contramap[Hostname](_.asInstanceOf[Host])
+    given Show[Hostname] = Show[Host].contramap[Hostname](identity)
     show.derived[ValidationRecord]
 end ValidationRecord
