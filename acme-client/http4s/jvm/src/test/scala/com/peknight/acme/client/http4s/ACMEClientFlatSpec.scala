@@ -64,7 +64,8 @@ class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                       context <- EitherT(acmeClient.fetchCertificate[DNS, `dns-01`, DNSRecordId](
                         identifiers,
                         accountKeyPair.asRight.pure,
-                        RSA.keySizeGenerateKeyPair[IO](4096, provider = provider.some).asError
+                        secp256r1.generateKeyPair[IO](provider = provider.some).asError, provider = provider.some
+//                        RSA.keySizeGenerateKeyPair[IO](4096, provider = provider.some).asError
                       ))
                     yield
                       (context.certificates, context.domainKeyPair)

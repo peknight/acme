@@ -43,7 +43,8 @@ object ScheduledResource:
     async: Async[F])
   : Resource[F, Ref[F, ((NonEmptyList[X509Certificate], KeyPair), A)]] =
     val fetchCertificate = acmeClient.fetchCertificate[I, Child, Record](identifiers, accountKeyPair, domainKeyPair,
-        sleepAfterPrepare, queryChallengeTimeout, queryChallengeInterval, queryOrderTimeout, queryOrderInterval)
+        sleepAfterPrepare, queryChallengeTimeout, queryChallengeInterval, queryOrderTimeout, queryOrderInterval,
+        provider)
       .map(_.map(context => (context.certificates, context.domainKeyPair)))
     SecurityScheduledResource[F, A](scheduler, threshold, alias, keyPassword, provider)(
       fetch[F, (NonEmptyList[X509Certificate], KeyPair)](source, Source.read(fetchCertificate.map(_.map(_.some))))

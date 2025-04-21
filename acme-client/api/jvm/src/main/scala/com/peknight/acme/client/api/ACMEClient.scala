@@ -11,10 +11,11 @@ import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.error.Error
 import com.peknight.http.HttpResponse
 import com.peknight.security.certificate.revocation.list.ReasonCode
+import com.peknight.security.provider.Provider
 import org.http4s.Uri
 
 import java.security.cert.{Certificate, X509Certificate}
-import java.security.{KeyPair, PublicKey}
+import java.security.{KeyPair, PublicKey, Provider as JProvider}
 import scala.concurrent.duration.*
 
 trait ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge]:
@@ -52,6 +53,7 @@ trait ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge]:
     queryChallengeTimeout: FiniteDuration = 1.minutes,
     queryChallengeInterval: FiniteDuration = 3.seconds,
     queryOrderTimeout: FiniteDuration = 1.minutes,
-    queryOrderInterval: FiniteDuration = 3.seconds
+    queryOrderInterval: FiniteDuration = 3.seconds,
+    provider: Option[Provider | JProvider] = None
   )(using challengeClient: ChallengeClient[F, Challenge, I, C, Record]): F[Either[Error, ACMEContext[Challenge]]]
 end ACMEClient
