@@ -5,16 +5,14 @@ import cats.syntax.functor.*
 import com.peknight.error.Error
 import com.peknight.error.option.OptionEmpty
 import com.peknight.error.syntax.applicativeError.asError
-import com.peknight.security.bouncycastle.openssl.jcajce.JcaPEMKeyConverter
 import com.peknight.security.bouncycastle.operator.jcajce.JcaContentSignerBuilder
 import com.peknight.security.provider.Provider
-import com.peknight.security.signature.{SHA256withECDSA, SHA256withRSA, SignatureAlgorithm}
+import com.peknight.security.signature.{SHA256withECDSA, SHA256withRSA}
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers
 import org.bouncycastle.asn1.x500.{X500Name, X500NameBuilder}
 import org.bouncycastle.asn1.x509.{Extension, ExtensionsGenerator, GeneralNames}
 import org.bouncycastle.pkcs.PKCS10CertificationRequest as JPKCS10CertificationRequest
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder
-import scodec.bits.ByteVector
 
 import java.security.interfaces.ECKey
 import java.security.{KeyPair, Provider as JProvider}
@@ -34,14 +32,4 @@ object PKCS10CertificationRequest:
         .build(signer))
         .toRight(OptionEmpty.label("PKCS10CertificationRequest"))
     }.asError.map(_.flatten)
-
-  def verify[F[_]: Sync](csr: JPKCS10CertificationRequest, provider: Option[Provider | JProvider] = None): F[Boolean] =
-    val id = csr.getSignatureAlgorithm.getAlgorithm.getId
-    val alg = SignatureAlgorithm.raw(csr.getSignatureAlgorithm.getAlgorithm.getId)
-    SHA256withRSA.publicKeyVerify[F](
-      JcaPEMKeyConverter(provider).getPublicKey(csr.getSubjectPublicKeyInfo),
-      ByteVector(csr.getEncoded),
-      ByteVector(csr.getSignature),
-      provider = provider
-    )
 end PKCS10CertificationRequest

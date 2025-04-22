@@ -26,7 +26,7 @@ import com.peknight.security.Security
 import com.peknight.security.bouncycastle.jce.provider.BouncyCastleProvider
 import com.peknight.security.bouncycastle.openssl.{fetchKeyPair, readX509CertificatesAndKeyPair, writeX509CertificatesAndKeyPair}
 import com.peknight.security.cipher.RSA
-import com.peknight.security.ecc.sec.secp256r1
+import com.peknight.security.ecc.sec.secp384r1
 import fs2.Stream
 import fs2.io.file.Files
 import fs2.io.net.Network
@@ -60,8 +60,8 @@ object ScheduledServer:
       given CloudflareDNSChallengeClient[F, Challenge] = dnsChallengeClient
       serverRef <- ScheduledResource[F, Challenge, DNS, `dns-01`, DNSRecordId, Server](
         Stream.awakeEvery[F](config.acme.checkInterval),
-        fetchKeyPair[F](config.acme.accountKeyPath)(secp256r1.generateKeyPair[F](provider = provider.some).asError),
-        RSA.keySizeGenerateKeyPair[F](4096, provider = provider.some).asError,
+        fetchKeyPair[F](config.acme.accountKeyPath)(RSA.keySizeGenerateKeyPair[F](4096, provider = provider.some).asError),
+        secp384r1.generateKeyPair[F](provider = provider.some).asError,
         Source[F, (NonEmptyList[X509Certificate], KeyPair)](
           readX509CertificatesAndKeyPair(config.acme.certificatePath, config.acme.domainKeyPath, provider.some,
             provider.some),

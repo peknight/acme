@@ -22,7 +22,7 @@ import com.peknight.security.Security
 import com.peknight.security.bouncycastle.jce.provider.BouncyCastleProvider
 import com.peknight.security.bouncycastle.openssl.{fetchKeyPair, fetchX509CertificatesAndKeyPair}
 import com.peknight.security.cipher.RSA
-import com.peknight.security.ecc.sec.secp256r1
+import com.peknight.security.ecc.sec.secp384r1
 import fs2.io.file.Path
 import org.http4s.*
 import org.http4s.client.Client
@@ -53,7 +53,7 @@ class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 dnsChallengeClient <- EitherT(CloudflareDNSChallengeClient[IO, Challenge](pekZoneId).asError)
                 given CloudflareDNSChallengeClient[IO, Challenge] = dnsChallengeClient
                 accountKeyPair <- EitherT(fetchKeyPair[IO](Path("cert/account.key"))(
-                  secp256r1.generateKeyPair[IO](provider = provider.some).asError))
+                  RSA.keySizeGenerateKeyPair[IO](4096, provider = provider.some).asError))
                 certificates <- EitherT(fetchX509CertificatesAndKeyPair[IO](Path("cert/domain.crt"),
                   Path("cert/domain.key"), provider.some, provider.some) {
                   val et =
@@ -64,8 +64,8 @@ class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                       context <- EitherT(acmeClient.fetchCertificate[DNS, `dns-01`, DNSRecordId](
                         identifiers,
                         accountKeyPair.asRight.pure,
-                        secp256r1.generateKeyPair[IO](provider = provider.some).asError, provider = provider.some
-//                        RSA.keySizeGenerateKeyPair[IO](4096, provider = provider.some).asError
+                        secp384r1.generateKeyPair[IO](provider = provider.some).asError,
+                        provider = provider.some
                       ))
                     yield
                       (context.certificates, context.domainKeyPair)
@@ -77,26 +77,6 @@ class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
           }
       yield either
     run.asserting(either => assert(either.isRight))
-  }
-
-  "CSR" should "succeed" in {
-    import cats.Show
-    import com.peknight.acme.bouncycastle.pkcs.PKCS10CertificationRequest
-    import org.bouncycastle.asn1.x509.{GeneralName, GeneralNames}
-    for
-      logger <- Slf4jLogger.fromClass[IO](classOf[ACMEClientFlatSpec])
-      given Logger[IO] = logger
-      given Show[GeneralNames] = Show.show[GeneralNames](_.getNames.mkString("GeneralNames(", ",", ")"))
-      provider <- BouncyCastleProvider[IO]
-      _ <- Security.addProvider[IO](provider)
-      generalNames = GeneralNames(Array(GeneralName(GeneralName.dNSName, "*.peknight.com")))
-//      domainKeyPair <- secp256r1.generateKeyPair[IO](provider = provider.some)
-      domainKeyPair <- RSA.keySizeGenerateKeyPair[IO](4096, provider = provider.some)
-      csr <- PKCS10CertificationRequest.certificateSigningRequest[IO](generalNames, domainKeyPair, provider.some).rethrow
-      flag <- PKCS10CertificationRequest.verify[IO](csr, provider.some)
-      _ <- IO.println(flag)
-    yield
-      ()
   }
 
   "Fetch KeyPair" should "succeed" in {
@@ -117,7 +97,7 @@ class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
         given Logger[IO] = logger
         provider <- EitherT(BouncyCastleProvider[IO].asError)
         _ <- EitherT(Security.addProvider[IO](provider).asError)
-        keyPair <- EitherT(secp256r1.generateKeyPair[IO]().asError)
+        keyPair <- EitherT(secp384r1.generateKeyPair[IO]().asError)
         _ <- EitherT(writePEM[IO](Path("cert/test.key")) {writer =>
           for
             _ <- writer.writeObjectF[IO](keyPair.getPublic)
