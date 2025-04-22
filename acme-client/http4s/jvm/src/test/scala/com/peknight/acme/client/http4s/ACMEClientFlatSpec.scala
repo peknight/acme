@@ -38,10 +38,10 @@ class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
   "ACME Client" should "succeed" in {
     val run =
       for
-        provider <- BouncyCastleProvider[IO]
-        _ <- Security.addProvider[IO](provider)
         logger <- Slf4jLogger.fromClass[IO](classOf[ACMEClientFlatSpec])
         given Logger[IO] = logger
+        provider <- BouncyCastleProvider[IO]
+        _ <- Security.addProvider[IO](provider)
         either <- EmberClientBuilder.default[IO].withLogger(logger).withTimeout(10.seconds).build
           .use { client =>
             given Client[IO] = client
@@ -77,6 +77,26 @@ class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
           }
       yield either
     run.asserting(either => assert(either.isRight))
+  }
+
+  "CSR" should "succeed" in {
+    import cats.Show
+    import com.peknight.acme.bouncycastle.pkcs.PKCS10CertificationRequest
+    import org.bouncycastle.asn1.x509.{GeneralName, GeneralNames}
+    for
+      logger <- Slf4jLogger.fromClass[IO](classOf[ACMEClientFlatSpec])
+      given Logger[IO] = logger
+      given Show[GeneralNames] = Show.show[GeneralNames](_.getNames.mkString("GeneralNames(", ",", ")"))
+      provider <- BouncyCastleProvider[IO]
+      _ <- Security.addProvider[IO](provider)
+      generalNames = GeneralNames(Array(GeneralName(GeneralName.dNSName, "*.peknight.com")))
+//      domainKeyPair <- secp256r1.generateKeyPair[IO](provider = provider.some)
+      domainKeyPair <- RSA.keySizeGenerateKeyPair[IO](4096, provider = provider.some)
+      csr <- PKCS10CertificationRequest.certificateSigningRequest[IO](generalNames, domainKeyPair, provider.some).rethrow
+      flag <- PKCS10CertificationRequest.verify[IO](csr, provider.some)
+      _ <- IO.println(flag)
+    yield
+      ()
   }
 
   "Fetch KeyPair" should "succeed" in {
