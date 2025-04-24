@@ -65,7 +65,7 @@ object Identifier:
     "Reserved" -> "RESERVED"
   )
 
-  private val codecConfig: CodecConfig =
+  private given codecConfig: CodecConfig =
     CodecConfig.default
       .withTransformConstructorName(constructorName => constructorNameMap.getOrElse(constructorName, constructorName))
       .withDiscriminator("type").withExtField("ext")
@@ -73,7 +73,6 @@ object Identifier:
   given codecDNS[F[_], S](using Monad[F], ObjectType[S], NullType[S], ArrayType[S], BooleanType[S], NumberType[S],
                           StringType[S], Encoder[F, S, JsonObject], Decoder[F, Cursor[S], JsonObject], Show[S])
   : Codec[F, S, Cursor[S], DNS] =
-    given CodecConfig = codecConfig
     Codec.derived[F, S, DNS]
 
   def stringDecodeDNS[F[_]: Applicative]: Decoder[F, String, DNS] =
@@ -82,37 +81,29 @@ object Identifier:
   given codecIP[F[_], S](using Monad[F], ObjectType[S], NullType[S], ArrayType[S], BooleanType[S], NumberType[S],
                          StringType[S], Encoder[F, S, JsonObject], Decoder[F, Cursor[S], JsonObject], Show[S])
   : Codec[F, S, Cursor[S], IP] =
-    given CodecConfig = codecConfig
     Codec.derived[F, S, IP]
 
   given codecEmail[F[_], S](using Monad[F], ObjectType[S], NullType[S], ArrayType[S], BooleanType[S], NumberType[S],
                             StringType[S], Encoder[F, S, JsonObject], Decoder[F, Cursor[S], JsonObject], Show[S])
   : Codec[F, S, Cursor[S], Email] =
-    given CodecConfig = codecConfig
     Codec.derived[F, S, Email]
 
   given codecTNAuthList[F[_], S](using Monad[F], ObjectType[S], NullType[S], ArrayType[S], BooleanType[S], NumberType[S],
                                  StringType[S], Encoder[F, S, JsonObject], Decoder[F, Cursor[S], JsonObject], Show[S])
   : Codec[F, S, Cursor[S], TNAuthList] =
-    given CodecConfig = codecConfig
     Codec.derived[F, S, TNAuthList]
 
   given codecReserved[F[_], S](using Monad[F], ObjectType[S], NullType[S], ArrayType[S], BooleanType[S], NumberType[S],
                                StringType[S], Encoder[F, S, JsonObject], Decoder[F, Cursor[S], JsonObject], Show[S])
   : Codec[F, S, Cursor[S], Reserved] =
-    given CodecConfig = codecConfig
     Codec.derived[F, S, Reserved]
 
   given codecIdentifier[F[_], S](using Monad[F], ObjectType[S], NullType[S], ArrayType[S], BooleanType[S], NumberType[S],
                                  StringType[S], Encoder[F, S, JsonObject], Decoder[F, Cursor[S], JsonObject], Show[S]
                                 ): Codec[F, S, Cursor[S], Identifier] =
-    given CodecConfig = codecConfig
     Codec.derived[F, S, Identifier]
   given jsonCodecIdentifier[F[_]: Monad]: Codec[F, Json, Cursor[Json], Identifier] =
     codecIdentifier[F, Json]
   given circeCodecIdentifier: io.circe.Codec[Identifier] = codec[Identifier]
-  given showIdentifier: Show[Identifier] =
-    import com.peknight.generic.instances.show.given
-    show.derived[Identifier]
-  end showIdentifier
+  given showIdentifier: Show[Identifier] = Show.fromToString[Identifier]
 end Identifier
