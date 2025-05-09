@@ -120,14 +120,6 @@ class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 keyStore1 <- EitherT(pkcs12[IO]("", context.domainKeyPair.getPrivate, "", context.certificates,
                   provider.some).asError)
                 tlsContext1 <- EitherT(Network.forAsync[IO].tlsContext.fromKeyStore(keyStore1, "".toCharArray).asError)
-                _ <- EitherT(EmberServerBuilder.default[IO].withLogger(logger)
-                  .withHostOption(none)
-                  .withPort(port"8443")
-                  .withTLS(tlsContext1)
-                  .withHttpWebSocketApp(_ => MiddlewareLogger.httpApp[IO](true, true)(httpApp))
-                  .build
-                  .allocated
-                  .asError)
                 _ <- EitherT(writeX509CertificatesAndKeyPair[IO](Path("cert/domain.crt"), Path("cert/domain.key"))(
                   context.certificates, context.domainKeyPair))
                 opt <- EitherT(readX509CertificatesAndKeyPair[IO](Path("cert/domain.crt"), Path("cert/domain.key"),
@@ -136,6 +128,19 @@ class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 keyStore2 <- EitherT(pkcs12[IO]("", domainKeyPair.getPrivate, "", certificates,
                   provider.some).asError)
                 tlsContext2 <- EitherT(Network.forAsync[IO].tlsContext.fromKeyStore(keyStore2, "".toCharArray).asError)
+                _ = println(context.certificates.head)
+                _ = println("-----------------------------------------")
+                _ = println("-----------------------------------------")
+                _ = println("-----------------------------------------")
+                _ = println(certificates.head)
+                _ <- EitherT(EmberServerBuilder.default[IO].withLogger(logger)
+                  .withHostOption(none)
+                  .withPort(port"8443")
+                  .withTLS(tlsContext1)
+                  .withHttpWebSocketApp(_ => MiddlewareLogger.httpApp[IO](true, true)(httpApp))
+                  .build
+                  .allocated
+                  .asError)
                 _ <- EitherT(EmberServerBuilder.default[IO].withLogger(logger)
                   .withHostOption(none)
                   .withPort(port"8444")
