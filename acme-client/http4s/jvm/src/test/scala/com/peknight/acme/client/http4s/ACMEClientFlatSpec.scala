@@ -86,70 +86,70 @@ class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
     run.asserting(either => assert(either.isRight))
   }
 
-  "ACME Client Http4s Server" should "succeed" in {
-    val run =
-      for
-        logger <- Slf4jLogger.fromClass[IO](classOf[ACMEClientFlatSpec])
-        given Logger[IO] = logger
-        provider <- BouncyCastleProvider[IO]
-        _ <- Security.addProvider[IO](provider)
-        either <- EmberClientBuilder.default[IO].withLogger(logger).withTimeout(10.seconds).build
-          .use { client =>
-            given Client[IO] = client
-            val eitherT =
-              for
-                stagingDirectory <- resolve(acmeStaging).eLiftET[IO]
-                acmeClient <- EitherT(ACMEClient[IO, Challenge](stagingDirectory).asError)
-                given DNSRecordApi[IO] = DNSRecordApi[IO](pekToken)
-                dnsChallengeClient <- EitherT(CloudflareDNSChallengeClient[IO, Challenge](pekZoneId).asError)
-                given CloudflareDNSChallengeClient[IO, Challenge] = dnsChallengeClient
-                accountKeyPair <- EitherT(fetchKeyPair[IO](Path("cert/account.key"))(
-                  RSA.keySizeGenerateKeyPair[IO](4096, provider = provider.some).asError))
-                identifiers <- NonEmptyList.of(
-                  "*.peknight.com",
-                ).traverse(domain => Identifier.dns(domain).eLiftET[IO])
-                context <- EitherT(acmeClient.fetchCertificate[DNS, `dns-01`, DNSRecordId](
-                  identifiers,
-                  accountKeyPair.asRight.pure,
-                  secp384r1.generateKeyPair[IO](provider = provider.some).asError,
-                  provider = provider.some
-                ))
-                given CanEqual[Method, Method] = CanEqual.derived
-                given CanEqual[org.http4s.dsl.io.Path, org.http4s.dsl.io.Path] = CanEqual.derived
-                httpApp = HttpRoutes.of[IO] { case req => Ok("Hello, world!") }.orNotFound
-                keyStore1 <- EitherT(pkcs12[IO]("", context.domainKeyPair.getPrivate, "", context.certificates,
-                  none).asError)
-                tlsContext1 <- EitherT(Network.forAsync[IO].tlsContext.fromKeyStore(keyStore1, "".toCharArray).asError)
-                _ <- EitherT(writeX509CertificatesAndKeyPair[IO](Path("cert/domain.crt"), Path("cert/domain.key"))(
-                  context.certificates, context.domainKeyPair))
-                opt <- EitherT(readX509CertificatesAndKeyPair[IO](Path("cert/domain.crt"), Path("cert/domain.key"),
-                  none, provider.some))
-                (certificates, domainKeyPair) <- opt.toRight(OptionEmpty.label("x509CertificatesAndKeyPair")).eLiftET[IO]
-                keyStore2 <- EitherT(pkcs12[IO]("", domainKeyPair.getPrivate, "", certificates,
-                  none).asError)
-                tlsContext2 <- EitherT(Network.forAsync[IO].tlsContext.fromKeyStore(keyStore2, "".toCharArray).asError)
-                _ <- EitherT(EmberServerBuilder.default[IO].withLogger(logger)
-                  .withHostOption(none)
-                  .withPort(port"8443")
-                  .withTLS(tlsContext1)
-                  .withHttpWebSocketApp(_ => MiddlewareLogger.httpApp[IO](true, true)(httpApp))
-                  .build
-                  .allocated
-                  .asError)
-                _ <- EitherT(EmberServerBuilder.default[IO].withLogger(logger)
-                  .withHostOption(none)
-                  .withPort(port"8444")
-                  .withTLS(tlsContext2)
-                  .withHttpWebSocketApp(_ => MiddlewareLogger.httpApp[IO](true, true)(httpApp))
-                  .build
-                  .allocated
-                  .asError)
-                _ <- EitherT(IO.never.asError)
-              yield
-                ()
-            eitherT.log[Unit]("ACMEClientHttp4sServer#run").value
-          }
-      yield either
-    run.asserting(either => assert(either.isRight))
-  }
+//  "ACME Client Http4s Server" should "succeed" in {
+//    val run =
+//      for
+//        logger <- Slf4jLogger.fromClass[IO](classOf[ACMEClientFlatSpec])
+//        given Logger[IO] = logger
+//        provider <- BouncyCastleProvider[IO]
+//        _ <- Security.addProvider[IO](provider)
+//        either <- EmberClientBuilder.default[IO].withLogger(logger).withTimeout(10.seconds).build
+//          .use { client =>
+//            given Client[IO] = client
+//            val eitherT =
+//              for
+//                stagingDirectory <- resolve(acmeStaging).eLiftET[IO]
+//                acmeClient <- EitherT(ACMEClient[IO, Challenge](stagingDirectory).asError)
+//                given DNSRecordApi[IO] = DNSRecordApi[IO](pekToken)
+//                dnsChallengeClient <- EitherT(CloudflareDNSChallengeClient[IO, Challenge](pekZoneId).asError)
+//                given CloudflareDNSChallengeClient[IO, Challenge] = dnsChallengeClient
+//                accountKeyPair <- EitherT(fetchKeyPair[IO](Path("cert/account.key"))(
+//                  RSA.keySizeGenerateKeyPair[IO](4096, provider = provider.some).asError))
+//                identifiers <- NonEmptyList.of(
+//                  "*.peknight.com",
+//                ).traverse(domain => Identifier.dns(domain).eLiftET[IO])
+//                context <- EitherT(acmeClient.fetchCertificate[DNS, `dns-01`, DNSRecordId](
+//                  identifiers,
+//                  accountKeyPair.asRight.pure,
+//                  secp384r1.generateKeyPair[IO](provider = provider.some).asError,
+//                  provider = provider.some
+//                ))
+//                given CanEqual[Method, Method] = CanEqual.derived
+//                given CanEqual[org.http4s.dsl.io.Path, org.http4s.dsl.io.Path] = CanEqual.derived
+//                httpApp = HttpRoutes.of[IO] { case req => Ok("Hello, world!") }.orNotFound
+//                keyStore1 <- EitherT(pkcs12[IO]("", context.domainKeyPair.getPrivate, "", context.certificates,
+//                  none).asError)
+//                tlsContext1 <- EitherT(Network.forAsync[IO].tlsContext.fromKeyStore(keyStore1, "".toCharArray).asError)
+//                _ <- EitherT(writeX509CertificatesAndKeyPair[IO](Path("cert/domain.crt"), Path("cert/domain.key"))(
+//                  context.certificates, context.domainKeyPair))
+//                opt <- EitherT(readX509CertificatesAndKeyPair[IO](Path("cert/domain.crt"), Path("cert/domain.key"),
+//                  none, provider.some))
+//                (certificates, domainKeyPair) <- opt.toRight(OptionEmpty.label("x509CertificatesAndKeyPair")).eLiftET[IO]
+//                keyStore2 <- EitherT(pkcs12[IO]("", domainKeyPair.getPrivate, "", certificates,
+//                  none).asError)
+//                tlsContext2 <- EitherT(Network.forAsync[IO].tlsContext.fromKeyStore(keyStore2, "".toCharArray).asError)
+//                _ <- EitherT(EmberServerBuilder.default[IO].withLogger(logger)
+//                  .withHostOption(none)
+//                  .withPort(port"8443")
+//                  .withTLS(tlsContext1)
+//                  .withHttpWebSocketApp(_ => MiddlewareLogger.httpApp[IO](true, true)(httpApp))
+//                  .build
+//                  .allocated
+//                  .asError)
+//                _ <- EitherT(EmberServerBuilder.default[IO].withLogger(logger)
+//                  .withHostOption(none)
+//                  .withPort(port"8444")
+//                  .withTLS(tlsContext2)
+//                  .withHttpWebSocketApp(_ => MiddlewareLogger.httpApp[IO](true, true)(httpApp))
+//                  .build
+//                  .allocated
+//                  .asError)
+//                _ <- EitherT(IO.never.asError)
+//              yield
+//                ()
+//            eitherT.log[Unit]("ACMEClientHttp4sServer#run").value
+//          }
+//      yield either
+//    run.asserting(either => assert(either.isRight))
+//  }
 end ACMEClientFlatSpec
