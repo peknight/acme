@@ -63,13 +63,12 @@ object ScheduledServer:
         fetchKeyPair[F](config.acme.accountKeyPath)(RSA.keySizeGenerateKeyPair[F](4096, provider = provider.some).asError),
         secp384r1.generateKeyPair[F](provider = provider.some).asError,
         Source[F, (NonEmptyList[X509Certificate], KeyPair)](
-          readX509CertificatesAndKeyPair(config.acme.certificatePath, config.acme.domainKeyPath, provider.some,
-            provider.some),
+          readX509CertificatesAndKeyPair(config.acme.certificatePath, config.acme.domainKeyPath, none, provider.some),
           writeX509CertificatesAndKeyPair(config.acme.certificatePath, config.acme.domainKeyPath)
         ),
         config.acme.domainIdentifiers, config.acme.checkThreshold, config.keyStore.alias, config.keyStore.keyPassword,
         config.acme.sleepAfterPrepare, config.acme.queryChallengeTimeout, config.acme.queryChallengeInterval,
-        config.acme.queryOrderTimeout, config.acme.queryOrderInterval, provider.some
+        config.acme.queryOrderTimeout, config.acme.queryOrderInterval, provider.some, none
       ) { (keyStore, certificates, keyPair) =>
         Network.forAsync[F].tlsContext.fromKeyStore(keyStore, config.keyStore.keyPassword.toCharArray)
           .map { tlsContext => EmberServerBuilder.default[F].withLogger(Logger[F])

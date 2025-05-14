@@ -118,21 +118,16 @@ class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 given CanEqual[org.http4s.dsl.io.Path, org.http4s.dsl.io.Path] = CanEqual.derived
                 httpApp = HttpRoutes.of[IO] { case req => Ok("Hello, world!") }.orNotFound
                 keyStore1 <- EitherT(pkcs12[IO]("", context.domainKeyPair.getPrivate, "", context.certificates,
-                  provider.some).asError)
+                  none).asError)
                 tlsContext1 <- EitherT(Network.forAsync[IO].tlsContext.fromKeyStore(keyStore1, "".toCharArray).asError)
                 _ <- EitherT(writeX509CertificatesAndKeyPair[IO](Path("cert/domain.crt"), Path("cert/domain.key"))(
                   context.certificates, context.domainKeyPair))
                 opt <- EitherT(readX509CertificatesAndKeyPair[IO](Path("cert/domain.crt"), Path("cert/domain.key"),
-                  provider.some, provider.some))
+                  none, provider.some))
                 (certificates, domainKeyPair) <- opt.toRight(OptionEmpty.label("x509CertificatesAndKeyPair")).eLiftET[IO]
                 keyStore2 <- EitherT(pkcs12[IO]("", domainKeyPair.getPrivate, "", certificates,
-                  provider.some).asError)
+                  none).asError)
                 tlsContext2 <- EitherT(Network.forAsync[IO].tlsContext.fromKeyStore(keyStore2, "".toCharArray).asError)
-                _ = println(context.certificates.head)
-                _ = println("-----------------------------------------")
-                _ = println("-----------------------------------------")
-                _ = println("-----------------------------------------")
-                _ = println(certificates.head)
                 _ <- EitherT(EmberServerBuilder.default[IO].withLogger(logger)
                   .withHostOption(none)
                   .withPort(port"8443")
