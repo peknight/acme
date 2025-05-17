@@ -49,7 +49,7 @@ object ScheduledServer:
       config <- Resource.eval(Decoder.load[F, AppConfig]().rethrow)
       provider <- Resource.eval(BouncyCastleProvider[F])
       _ <- Resource.eval(Security.addProvider[F](provider))
-      client <- EmberClientBuilder.default[F].withLogger(Logger[F]).withMaxTotal().withTimeout(config.http.client.timeout).build
+      client <- EmberClientBuilder.default[F].withLogger(Logger[F]).withTimeout(config.http.client.timeout).build
       loggerClient = ClientLogger(config.http.client.logHeaders, config.http.client.logBody)(client)
       given Client[F] = loggerClient
       acmeUri <- Resource.eval(resolve(config.acme.serverUri).pure[F].rethrow)
