@@ -78,7 +78,7 @@ object ScheduledServer:
             .withPort(config.http.server.port)
             .withTLS(tlsContext)
             .withHttpWebSocketApp { builder =>
-              val serverContext = ServerContext[F](builder, client, loggerClient, acmeClient, dnsRecordApi,
+              val serverContext = ServerContext[F](builder, loggerClient, acmeClient, dnsRecordApi,
                 dnsChallengeClient, certificates, keyPair, keyStore, provider)
               val serverConfig = config.http.server
               ServerLogger.httpApp[F](serverConfig.logHeaders, serverConfig.logBody)(httpApp(serverContext))
@@ -87,5 +87,5 @@ object ScheduledServer:
           }
       }
     yield
-      AppContext(client, loggerClient, acmeClient, dnsRecordApi, dnsChallengeClient, serverRef, provider)
+      AppContext(loggerClient, acmeClient, dnsRecordApi, dnsChallengeClient, serverRef, provider)
 end ScheduledServer
