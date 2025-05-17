@@ -19,6 +19,7 @@ import java.security.{KeyPair, KeyStore}
 case class ServerContext[F[_]](
                                 webSocketBuilder: WebSocketBuilder[F],
                                 client: Client[F],
+                                loggerClient: Client[F],
                                 acmeClient: ACMEClient[F, Challenge],
                                 dnsRecordApi: DNSRecordApi[F],
                                 dnsChallengeClient: CloudflareDNSChallengeClient[F, Challenge],

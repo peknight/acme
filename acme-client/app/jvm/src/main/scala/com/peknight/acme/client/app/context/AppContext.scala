@@ -16,6 +16,7 @@ import java.security.cert.X509Certificate
 
 case class AppContext[F[_]](
                              client: Client[F],
+                             loggerClient: Client[F],
                              acmeClient: ACMEClient[F, Challenge],
                              dnsRecordApi: DNSRecordApi[F],
                              dnsChallengeClient: CloudflareDNSChallengeClient[F, Challenge],
