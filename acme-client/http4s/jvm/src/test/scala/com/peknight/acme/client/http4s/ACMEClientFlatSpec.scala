@@ -6,7 +6,6 @@ import cats.effect.testing.scalatest.AsyncIOSpec
 import cats.syntax.applicative.*
 import cats.syntax.either.*
 import cats.syntax.option.*
-import com.comcast.ip4s.port
 import com.peknight.acme.challenge.Challenge.`dns-01`
 import com.peknight.acme.client.cloudflare.CloudflareDNSChallengeClient
 import com.peknight.acme.client.letsencrypt.challenge.Challenge
@@ -16,24 +15,21 @@ import com.peknight.acme.identifier.Identifier.DNS
 import com.peknight.cats.ext.syntax.eitherT.eLiftET
 import com.peknight.cloudflare.dns.record.DNSRecordId
 import com.peknight.cloudflare.dns.record.http4s.DNSRecordApi
-import com.peknight.cloudflare.test.{pekToken, pekZoneId}
-import com.peknight.error.option.OptionEmpty
+import com.peknight.cloudflare.zone.codec.instances.config.cloudflareZoneConfig.given
+import com.peknight.cloudflare.zone.config.CloudflareZoneConfig
+import com.peknight.codec.Decoder
+import com.peknight.codec.reader.Key
 import com.peknight.error.syntax.applicativeError.asError
 import com.peknight.logging.syntax.eitherT.log
 import com.peknight.security.Security
 import com.peknight.security.bouncycastle.jce.provider.BouncyCastleProvider
-import com.peknight.security.bouncycastle.openssl.{fetchKeyPair, fetchX509CertificatesAndKeyPair, readX509CertificatesAndKeyPair, writeX509CertificatesAndKeyPair}
+import com.peknight.security.bouncycastle.openssl.{fetchKeyPair, fetchX509CertificatesAndKeyPair}
 import com.peknight.security.cipher.RSA
 import com.peknight.security.ecc.sec.secp384r1
-import com.peknight.security.key.store.pkcs12
 import fs2.io.file.Path
-import fs2.io.net.Network
 import org.http4s.client.Client
-import org.http4s.dsl.io.{Path as _, *}
+import org.http4s.dsl.io.Path as _
 import org.http4s.ember.client.EmberClientBuilder
-import org.http4s.ember.server.EmberServerBuilder
-import org.http4s.server.middleware.Logger as MiddlewareLogger
-import org.http4s.{HttpRoutes, Method}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
@@ -56,8 +52,9 @@ class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
               for
                 stagingDirectory <- resolve(acmeStaging).eLiftET[IO]
                 acmeClient <- EitherT(ACMEClient[IO, Challenge](stagingDirectory).asError)
-                given DNSRecordApi[IO] = DNSRecordApi[IO](pekToken)
-                dnsChallengeClient <- EitherT(CloudflareDNSChallengeClient[IO, Challenge](pekZoneId).asError)
+                config <- EitherT(Decoder.load[IO, CloudflareZoneConfig](Key("CLOUDFLARE")))
+                given DNSRecordApi[IO] = DNSRecordApi[IO](config.token)
+                dnsChallengeClient <- EitherT(CloudflareDNSChallengeClient[IO, Challenge](config.zoneId).asError)
                 given CloudflareDNSChallengeClient[IO, Challenge] = dnsChallengeClient
                 accountKeyPair <- EitherT(fetchKeyPair[IO](Path("cert/account.key"))(
                   RSA.keySizeGenerateKeyPair[IO](4096, provider = provider.some).asError))

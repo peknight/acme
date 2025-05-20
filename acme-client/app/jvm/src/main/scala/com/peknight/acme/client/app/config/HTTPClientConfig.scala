@@ -15,6 +15,6 @@ case class HTTPClientConfig(
                              logBody: Boolean = true
                            )
 object HTTPClientConfig:
-  given decodeHTTPClientConfigKey[F[_]](using MonadError[F, Throwable], Env[F]): Decoder[F, Key, HTTPClientConfig] =
+  given keyDecodeHTTPClientConfig[F[_]](using MonadError[F, Throwable], Env[F]): Decoder[F, Key, HTTPClientConfig] =
     Decoder.derivedByKey[F, HTTPClientConfig]
 end HTTPClientConfig

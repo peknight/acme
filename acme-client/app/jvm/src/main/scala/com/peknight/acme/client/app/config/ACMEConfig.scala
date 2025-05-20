@@ -35,8 +35,8 @@ case class ACMEConfig(
                        compression: Boolean = true
                      )
 object ACMEConfig:
-  given decodeACMEConfigKey[F[_]](using MonadError[F, Throwable], Env[F]): Decoder[F, Key, ACMEConfig] =
-    given decodeNonEmptyListKey: Decoder[F, String, NonEmptyList[DNS]] =
+  given keyDecodeACMEConfig[F[_]](using MonadError[F, Throwable], Env[F]): Decoder[F, Key, ACMEConfig] =
+    given stringDecodeNonEmptyListDNS: Decoder[F, String, NonEmptyList[DNS]] =
       Decoder.stringDecodeSeq[F, DNS, NonEmptyList](s =>
         nonEmpty(s.split("\\s*,\\s*").toList).left.map(DecodingFailure.apply)
       )(using stringDecodeDNS)

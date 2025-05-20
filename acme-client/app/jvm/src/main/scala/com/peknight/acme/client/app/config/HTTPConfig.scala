@@ -11,6 +11,6 @@ import scala.concurrent.duration.*
 
 case class HTTPConfig(client: HTTPClientConfig, server: HTTPServerConfig)
 object HTTPConfig:
-  given decodeHTTPConfigKey[F[_]](using MonadError[F, Throwable], Env[F]): Decoder[F, Key, HTTPConfig] =
+  given keyDecodeHTTPConfig[F[_]](using MonadError[F, Throwable], Env[F]): Decoder[F, Key, HTTPConfig] =
     Decoder.derivedByKey[F, HTTPConfig]
 end HTTPConfig

@@ -12,6 +12,6 @@ case class KeyStoreConfig(
                            keyPassword: String = ""
                          )
 object KeyStoreConfig:
-  given decodeKeyStoreConfigKey[F[_]](using MonadError[F, Throwable], Env[F]): Decoder[F, Key, KeyStoreConfig] =
+  given keyDecodeKeyStoreConfig[F[_]](using MonadError[F, Throwable], Env[F]): Decoder[F, Key, KeyStoreConfig] =
     Decoder.derivedByKey[F, KeyStoreConfig]
 end KeyStoreConfig
