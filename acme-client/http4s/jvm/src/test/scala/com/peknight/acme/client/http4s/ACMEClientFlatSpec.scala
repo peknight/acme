@@ -52,7 +52,8 @@ class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
               for
                 stagingDirectory <- resolve(acmeStaging).eLiftET[IO]
                 acmeClient <- EitherT(ACMEClient[IO, Challenge](stagingDirectory).asError)
-                config <- EitherT(Decoder.load[IO, CloudflareZoneConfig](Key("CLOUDFLARE")))
+                // 设置环境变量CLOUDFLARE_TOKEN及CLOUDFLARE_ZONE_ID
+                config <- EitherT(Decoder.load[IO, CloudflareZoneConfig](Key("cloudflare")))
                 given DNSRecordApi[IO] = DNSRecordApi[IO](config.token)
                 dnsChallengeClient <- EitherT(CloudflareDNSChallengeClient[IO, Challenge](config.zoneId).asError)
                 given CloudflareDNSChallengeClient[IO, Challenge] = dnsChallengeClient
