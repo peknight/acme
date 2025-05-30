@@ -5,6 +5,7 @@ import cats.data.NonEmptyList
 import cats.effect.std.Env
 import cats.effect.{Async, Resource}
 import cats.syntax.applicative.*
+import cats.syntax.flatMap.*
 import cats.syntax.functor.*
 import cats.syntax.monadError.*
 import cats.syntax.option.*
@@ -37,13 +38,14 @@ import org.http4s.ember.client.EmberClientBuilder
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.server.Server
 import org.http4s.server.middleware.Logger as ServerLogger
+import org.http4s.server.websocket.WebSocketBuilder
 import org.typelevel.log4cats.Logger
 
 import java.security.KeyPair
 import java.security.cert.X509Certificate
 
 object ScheduledServer:
-  def apply[F[_]: {Async, Parallel, Logger, Files, Env}](httpApp: ServerContext[F] => HttpApp[F])
+  def apply[F[_]: {Async, Parallel, Logger, Files, Env}](appF: ServerContext[F] => F[WebSocketBuilder[F] => HttpApp[F]])
   : Resource[F, AppContext[F]] =
     for
       config <- Resource.eval(Decoder.load[F, AppConfig]().rethrow)
@@ -72,19 +74,21 @@ object ScheduledServer:
         config.acme.sleepAfterPrepare, config.acme.queryChallengeTimeout, config.acme.queryChallengeInterval,
         config.acme.queryOrderTimeout, config.acme.queryOrderInterval, provider.some, none
       ) { (keyStore, certificates, keyPair) =>
-        Network.forAsync[F].tlsContext.fromKeyStore(keyStore, config.keyStore.keyPassword.toCharArray)
-          .map { tlsContext => EmberServerBuilder.default[F].withLogger(Logger[F])
+        for
+          tlsContext <- Network.forAsync[F].tlsContext.fromKeyStore(keyStore, config.keyStore.keyPassword.toCharArray)
+          serverContext = ServerContext[F](loggerClient, acmeClient, dnsRecordApi, dnsChallengeClient, certificates,
+            keyPair, keyStore, provider)
+          f <- appF(serverContext)
+        yield
+          EmberServerBuilder.default[F].withLogger(Logger[F])
             .withHostOption(config.http.server.host)
             .withPort(config.http.server.port)
             .withTLS(tlsContext)
             .withHttpWebSocketApp { builder =>
-              val serverContext = ServerContext[F](builder, loggerClient, acmeClient, dnsRecordApi,
-                dnsChallengeClient, certificates, keyPair, keyStore, provider)
               val serverConfig = config.http.server
-              ServerLogger.httpApp[F](serverConfig.logHeaders, serverConfig.logBody)(httpApp(serverContext))
+              ServerLogger.httpApp[F](serverConfig.logHeaders, serverConfig.logBody)(f(builder))
             }
             .build
-          }
       }
     yield
       AppContext(loggerClient, acmeClient, dnsRecordApi, dnsChallengeClient, serverRef, provider)
