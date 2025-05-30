@@ -13,8 +13,6 @@ import com.peknight.codec.reader.Key
 case class HTTPServerConfig(
                              host: Option[Host] = None,
                              port: Port = port"443",
-                             logHeaders: Boolean = true,
-                             logBody: Boolean = true
                            )
 object HTTPServerConfig:
   given keyDecodeHTTPServerConfig[F[_]](using MonadError[F, Throwable], Env[F]): Decoder[F, Key, HTTPServerConfig] =

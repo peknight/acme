@@ -37,7 +37,6 @@ import org.http4s.client.middleware.Logger as ClientLogger
 import org.http4s.ember.client.EmberClientBuilder
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.server.Server
-import org.http4s.server.middleware.Logger as ServerLogger
 import org.http4s.server.websocket.WebSocketBuilder
 import org.typelevel.log4cats.Logger
 
@@ -52,8 +51,9 @@ object ScheduledServer:
       provider <- Resource.eval(BouncyCastleProvider[F])
       _ <- Resource.eval(Security.addProvider[F](provider))
       client <- EmberClientBuilder.default[F].withLogger(Logger[F]).withTimeout(config.http.client.timeout).build
-      loggerClient = ClientLogger(config.http.client.logHeaders, config.http.client.logBody)(client)
-      given Client[F] = loggerClient
+      given Client[F] =
+        if config.acme.logHttp then ClientLogger(config.http.client.logHeaders, config.http.client.logBody)(client)
+        else client
       acmeUri <- Resource.eval(resolve(config.acme.serverUri).pure[F].rethrow)
       acmeClient <- Resource.eval(ACMEClient[F, Challenge](acmeUri, config.acme.directoryMaxAge, None,
         config.acme.compression))
@@ -76,7 +76,7 @@ object ScheduledServer:
       ) { (keyStore, certificates, keyPair) =>
         for
           tlsContext <- Network.forAsync[F].tlsContext.fromKeyStore(keyStore, config.keyStore.keyPassword.toCharArray)
-          serverContext = ServerContext[F](loggerClient, acmeClient, dnsRecordApi, dnsChallengeClient, certificates,
+          serverContext = ServerContext[F](client, acmeClient, dnsRecordApi, dnsChallengeClient, certificates,
             keyPair, keyStore, provider)
           f <- appF(serverContext)
         yield
@@ -84,12 +84,9 @@ object ScheduledServer:
             .withHostOption(config.http.server.host)
             .withPort(config.http.server.port)
             .withTLS(tlsContext)
-            .withHttpWebSocketApp { builder =>
-              val serverConfig = config.http.server
-              ServerLogger.httpApp[F](serverConfig.logHeaders, serverConfig.logBody)(f(builder))
-            }
+            .withHttpWebSocketApp(f)
             .build
       }
     yield
-      AppContext(loggerClient, acmeClient, dnsRecordApi, dnsChallengeClient, serverRef, provider)
+      AppContext(client, acmeClient, dnsRecordApi, dnsChallengeClient, serverRef, provider)
 end ScheduledServer

@@ -32,7 +32,8 @@ case class ACMEConfig(
                        queryChallengeInterval: FiniteDuration = 3.seconds,
                        queryOrderTimeout: FiniteDuration = 1.minutes,
                        queryOrderInterval: FiniteDuration = 3.seconds,
-                       compression: Boolean = true
+                       compression: Boolean = true,
+                       logHttp: Boolean = true,
                      )
 object ACMEConfig:
   given keyDecodeACMEConfig[F[_]](using MonadError[F, Throwable], Env[F]): Decoder[F, Key, ACMEConfig] =
