@@ -83,6 +83,12 @@ object ScheduledServer:
           EmberServerBuilder.default[F].withLogger(Logger[F])
             .withHostOption(config.http.server.host)
             .withPort(config.http.server.port)
+            .withMaxConnections(config.http.server.maxConnections)
+            .withReceiveBufferSize(config.http.server.receiveBufferSize)
+            .withMaxHeaderSize(config.http.server.maxHeaderSize)
+            .withRequestHeaderReceiveTimeout(config.http.server.requestHeaderReceiveTimeout)
+            .withIdleTimeout(config.http.server.idleTimeout)
+            .withShutdownTimeout(config.http.server.shutdownTimeout)
             .withTLS(tlsContext)
             .withHttpWebSocketApp(f)
             .build
