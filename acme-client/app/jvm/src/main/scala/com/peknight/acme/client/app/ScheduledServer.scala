@@ -50,7 +50,15 @@ object ScheduledServer:
       config <- Resource.eval(Decoder.load[F, AppConfig]().rethrow)
       provider <- Resource.eval(BouncyCastleProvider[F])
       _ <- Resource.eval(Security.addProvider[F](provider))
-      client <- EmberClientBuilder.default[F].withLogger(Logger[F]).withTimeout(config.http.client.timeout).build
+      builder = EmberClientBuilder.default[F].withLogger(Logger[F])
+        .withMaxTotal(config.http.client.maxTotal)
+        .withIdleTimeInPool(config.http.client.idleTimeInPool)
+        .withChunkSize(config.http.client.chunkSize)
+        .withMaxResponseHeaderSize(config.http.client.maxResponseHeaderSize)
+        .withIdleConnectionTime(config.http.client.idleConnectionTime)
+        .withTimeout(config.http.client.timeout)
+        .withCheckEndpointAuthentication(config.http.client.checkEndpointIdentification)
+      client <- if config.http.client.enableHttp2 then builder.withHttp2.build else builder.withoutHttp2.build
       given Client[F] =
         if config.acme.logHttp then ClientLogger(config.http.client.logHeaders, config.http.client.logBody)(client)
         else client
