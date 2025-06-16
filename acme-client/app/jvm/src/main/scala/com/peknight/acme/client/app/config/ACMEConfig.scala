@@ -23,7 +23,9 @@ case class ACMEConfig(
                        accountKeyPath: Path = Path("cert/account.key"),
                        domainKeyPath: Path = Path("cert/domain.key"),
                        certificatePath: Path = Path("cert/domain.crt"),
-                       domainIdentifiers: NonEmptyList[DNS] = NonEmptyList.one(DNS("*.peknight.com")),
+                       domainIdentifiers: NonEmptyList[DNS] = NonEmptyList.of(
+                         DNS("*.peknight.com"), DNS("*.local.peknight.com"), DNS("*.server.peknight.com")
+                       ),
                        checkInterval: FiniteDuration = 1.day,
                        checkThreshold: FiniteDuration = 7.day,
                        directoryMaxAge: FiniteDuration = 10.minutes,
