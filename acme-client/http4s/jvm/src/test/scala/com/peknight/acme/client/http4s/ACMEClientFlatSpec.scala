@@ -45,7 +45,7 @@ class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
         given Logger[IO] = logger
         provider <- BouncyCastleProvider[IO]
         _ <- Security.addProvider[IO](provider)
-        either <- EmberClientBuilder.default[IO].withLogger(logger).withTimeout(10.seconds).build
+        either <- EmberClientBuilder.default[IO].withLogger(logger).withTimeout(45.seconds).build
           .use { client =>
             given Client[IO] = client
             val eitherT =
