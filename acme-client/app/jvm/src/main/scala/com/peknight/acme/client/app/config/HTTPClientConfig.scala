@@ -5,7 +5,9 @@ import cats.effect.std.Env
 import com.peknight.codec.Decoder
 import com.peknight.codec.config.given
 import com.peknight.codec.effect.instances.envReader.given
+import com.peknight.codec.http4s.instances.header.given
 import com.peknight.codec.reader.Key
+import org.http4s.headers.`User-Agent`
 
 import scala.concurrent.duration.*
 
@@ -16,6 +18,7 @@ case class HTTPClientConfig(
                              maxResponseHeaderSize: Int = 4096,
                              idleConnectionTime: Duration = 45.seconds,
                              timeout: Duration = 10.seconds,
+                             userAgent: Option[`User-Agent`] = None,
                              checkEndpointIdentification: Boolean = true,
                              enableHttp2: Boolean = false,
                              logHeaders: Boolean = true,

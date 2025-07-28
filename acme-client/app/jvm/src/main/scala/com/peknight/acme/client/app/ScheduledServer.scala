@@ -36,6 +36,7 @@ import org.http4s.client.Client
 import org.http4s.client.middleware.Logger as ClientLogger
 import org.http4s.ember.client.EmberClientBuilder
 import org.http4s.ember.server.EmberServerBuilder
+import org.http4s.headers.`User-Agent`
 import org.http4s.server.Server
 import org.http4s.server.websocket.WebSocketBuilder
 import org.typelevel.log4cats.Logger
@@ -50,15 +51,17 @@ object ScheduledServer:
       config <- Resource.eval(Decoder.load[F, AppConfig]().rethrow)
       provider <- Resource.eval(BouncyCastleProvider[F])
       _ <- Resource.eval(Security.addProvider[F](provider))
-      builder = EmberClientBuilder.default[F].withLogger(Logger[F])
+      client <- EmberClientBuilder.default[F].withLogger(Logger[F])
         .withMaxTotal(config.http.client.maxTotal)
         .withIdleTimeInPool(config.http.client.idleTimeInPool)
         .withChunkSize(config.http.client.chunkSize)
         .withMaxResponseHeaderSize(config.http.client.maxResponseHeaderSize)
         .withIdleConnectionTime(config.http.client.idleConnectionTime)
         .withTimeout(config.http.client.timeout)
+        .withUserAgent(config.http.client.userAgent)
         .withCheckEndpointAuthentication(config.http.client.checkEndpointIdentification)
-      client <- if config.http.client.enableHttp2 then builder.withHttp2.build else builder.withoutHttp2.build
+        .withEnableHttp2(config.http.client.enableHttp2)
+        .build
       given Client[F] =
         if config.acme.logHttp then ClientLogger(config.http.client.logHeaders, config.http.client.logBody)(client)
         else client
@@ -103,4 +106,13 @@ object ScheduledServer:
       }
     yield
       AppContext(client, acmeClient, dnsRecordApi, dnsChallengeClient, serverRef, provider)
+
+  extension [F[_]] (builder: EmberClientBuilder[F])
+    private def withUserAgent(userAgent: Option[`User-Agent`]): EmberClientBuilder[F] =
+      userAgent match
+        case Some(ua) => builder.withUserAgent(ua)
+        case None => builder.withoutUserAgent
+    private def withEnableHttp2(enableHttp2: Boolean): EmberClientBuilder[F] =
+      if enableHttp2 then builder.withHttp2 else builder.withoutHttp2
+  end extension
 end ScheduledServer
