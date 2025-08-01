@@ -6,7 +6,7 @@ import com.peknight.cats.ext.syntax.eitherT.eLiftET
 import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.error.Error
 import com.peknight.error.option.OptionEmpty
-import com.peknight.error.syntax.applicativeError.asError
+import com.peknight.error.syntax.applicativeError.asET
 import com.peknight.security.bouncycastle.cert.X509CertificateHolder
 import com.peknight.security.syntax.certificate.getEncodedF
 import org.bouncycastle.asn1.x509.AuthorityKeyIdentifier
@@ -19,8 +19,8 @@ trait X509CertificateSyntax:
     def getRenewalUniqueIdentifier[F[_]: Sync]: F[Either[Error, String]] =
       val eitherT =
         for
-          encoded <- EitherT(certificate.getEncodedF[F].asError)
-          holder <- EitherT(X509CertificateHolder[F](encoded).asError)
+          encoded <- certificate.getEncodedF[F].asET
+          holder <- X509CertificateHolder[F](encoded).asET
           akiOption =
             for
               holder <- Option(holder)

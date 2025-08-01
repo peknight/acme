@@ -6,7 +6,7 @@ import com.peknight.acme.client.letsencrypt.challenge.Challenge.`dns-01`
 import com.peknight.cats.ext.syntax.eitherT.eLiftET
 import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.error.Error
-import com.peknight.error.syntax.applicativeError.asError
+import com.peknight.error.syntax.applicativeError.asET
 import com.peknight.error.syntax.either.asError
 import com.peknight.jose.jwk.JsonWebKey
 import com.peknight.security.digest.`SHA-256`
@@ -22,7 +22,7 @@ trait DNS01Platform { self: `dns-01` =>
         thumbprint <- EitherT(jwk.calculateBase64UrlEncodedThumbprint[F]())
         authorization = s"${self.token.value}.${thumbprint.value}"
         input <- ByteVector.encodeUtf8(authorization).asError.eLiftET[F]
-        sha256hash <- EitherT(`SHA-256`.digest[F](input).asError)
+        sha256hash <- `SHA-256`.digest[F](input).asET
       yield
         Base64UrlNoPad.fromByteVector(sha256hash).value
     eitherT.value

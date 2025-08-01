@@ -33,7 +33,7 @@ import com.peknight.codec.{Decoder, Encoder}
 import com.peknight.commons.time.syntax.temporal.plus
 import com.peknight.error.Error
 import com.peknight.error.option.OptionEmpty
-import com.peknight.error.syntax.applicativeError.asError
+import com.peknight.error.syntax.applicativeError.asET
 import com.peknight.http.HttpResponse
 import com.peknight.http.syntax.eitherF.retry
 import com.peknight.jose.jwk.{JsonWebKey, KeyId}
@@ -77,12 +77,12 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
     val eitherT =
       for
         directory <- EitherT(acmeApi.directory(directoryUri))
-        now <- EitherT(Clock.realTimeInstant[F].asError)
-        _ <- EitherT(directoryRef.update {
+        now <- Clock.realTimeInstant[F].asET
+        _ <- directoryRef.update {
           case Some(HttpResponse(status, headers, body, None)) =>
             HttpResponse(status, headers, body, now.plus(directoryMaxAge).some).some
           case directoryR => directoryR
-        }.asError)
+        }.asET
       yield
         directory
     eitherT.value
@@ -90,7 +90,7 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
   def nonce: F[Either[Error, Base64UrlNoPad]] =
     val eitherT =
       for
-        nonceOption <- EitherT(nonceRef.getAndSet(None).asError)
+        nonceOption <- nonceRef.getAndSet(None).asET
         nonce <- nonceOption match
           case Some(nonce) => nonce.rLiftET
           case _ =>
@@ -299,7 +299,7 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
             }.use {
               case Some((identifier, challenge, a)) =>
                 for
-                  _ <- EitherT(GenTemporal[F].sleep(sleepAfterPrepare).asError)
+                  _ <- GenTemporal[F].sleep(sleepAfterPrepare).asET
                   challenge <- EitherT(updateChallenge(challenge.url, accountKeyPair, accountLocation))
                     .log("ACMEClient#updateChallenge", challenge.url.some)
                   challenge <-
@@ -307,7 +307,7 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
                       challenge.rLiftET
                     else
                       for
-                        _ <- EitherT(GenTemporal[F].sleep(queryChallengeInterval).asError)
+                        _ <- GenTemporal[F].sleep(queryChallengeInterval).asET
                         challenge <- EitherT(queryChallengeRetry(challenge.url, accountKeyPair, accountLocation)(
                           queryChallengeTimeout, queryChallengeInterval))
                       yield
@@ -340,7 +340,7 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
           if Set(OrderStatus.valid, OrderStatus.invalid).contains(order.status) then order.rLiftET
           else
             for
-              _ <- EitherT(GenTemporal[F].sleep(queryOrderInterval).asError)
+              _ <- GenTemporal[F].sleep(queryOrderInterval).asET
               order <- EitherT(queryOrderRetry(orderLocation, accountKeyPair, accountLocation)(queryOrderTimeout,
                 queryOrderInterval, Set(OrderStatus.valid, OrderStatus.invalid)))
             yield

@@ -43,7 +43,6 @@ import org.http4s.client.Client
 import org.http4s.client.dsl.Http4sClientDsl
 
 import java.security.cert.X509Certificate
-import java.time.Instant
 import java.util.Locale
 
 class ACMEApi[F[_]: Async](
