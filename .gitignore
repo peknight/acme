@@ -1,6 +1,8 @@
 logs/
 cert/
 
+build.properties
+
 .bsp/
 .bloop/
 .metals/
