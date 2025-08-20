@@ -1,66 +1,31 @@
-ThisBuild / version := "0.1.0-SNAPSHOT"
+import com.peknight.build.gav.*
+import com.peknight.build.sbt.*
 
-ThisBuild / scalaVersion := "3.7.1"
-
-ThisBuild / organization := "com.peknight"
-
-ThisBuild / versionScheme := Some("early-semver")
-
-ThisBuild / publishTo := {
-  val nexus = "https://nexus.peknight.com/repository"
-  if (isSnapshot.value)
-    Some("snapshot" at s"$nexus/maven-snapshots/")
-  else
-    Some("releases" at s"$nexus/maven-releases/")
-}
-
-ThisBuild / credentials ++= Seq(
-  Credentials(Path.userHome / ".sbt" / ".credentials")
-)
-
-ThisBuild / resolvers ++= Seq(
-  "Pek Nexus" at "https://nexus.peknight.com/repository/maven-public/",
-)
-
-lazy val commonSettings = Seq(
-  scalacOptions ++= Seq(
-    "-feature",
-    "-deprecation",
-    "-unchecked",
-    "-Xfatal-warnings",
-    "-language:strictEquality",
-    "-Xmax-inlines:64"
-  ),
-)
+commonSettings
 
 lazy val acme = (project in file("."))
+  .settings(name := "acme")
   .aggregate(
     acmeCore.jvm,
     acmeCore.js,
     acmeClient,
   )
-  .settings(commonSettings)
-  .settings(
-    name := "acme",
-  )
 
-lazy val acmeCore = (crossProject(JSPlatform, JVMPlatform) in file("acme-core"))
-  .settings(commonSettings)
-  .settings(
-    name := "acme-core",
-    libraryDependencies ++= Seq(
-      "com.peknight" %%% "jose-core" % pekJoseVersion,
-      "com.peknight" %%% "http-core" % pekHttpVersion,
-      "com.peknight" %%% "codec-ip4s" % pekCodecVersion,
-      "com.peknight" %%% "security-bcprov" % pekSecurityVersion,
-      "com.peknight" %%% "security-bcpkix" % pekSecurityVersion,
-      "com.peknight" %%% "security-codec-instances" % pekSecurityVersion,
-      "com.peknight" %%% "cats-effect-ext" % pekExtVersion,
-      "com.peknight" %%% "http4s-ext" % pekExtVersion,
-    ),
-  )
+lazy val acmeCore = (crossProject(JVMPlatform, JSPlatform) in file("acme-core"))
+  .settings(name := "acme-core")
+  .settings(crossDependencies(
+    peknight.jose,
+    peknight.http,
+    peknight.codec.ip4s,
+    peknight.security.bouncyCastle.provider,
+    peknight.security.bouncyCastle.pkix,
+    peknight.security.instances.codec,
+    peknight.ext.catsEffect,
+    peknight.ext.http4s,
+  ))
 
 lazy val acmeClient = (project in file("acme-client"))
+  .settings(name := "acme-client")
   .aggregate(
     acmeClientCore.jvm,
     acmeClientCore.js,
@@ -77,136 +42,75 @@ lazy val acmeClient = (project in file("acme-client"))
     acmeClientApp.jvm,
     acmeClientApp.js,
   )
-  .settings(commonSettings)
-  .settings(
-    name := "acme-client",
-  )
 
-lazy val acmeClientCore = (crossProject(JSPlatform, JVMPlatform) in file("acme-client/core"))
+lazy val acmeClientCore = (crossProject(JVMPlatform, JSPlatform) in file("acme-client/core"))
   .dependsOn(acmeCore)
-  .settings(commonSettings)
-  .settings(
-    name := "acme-client-core",
-    libraryDependencies ++= Seq(
-      "com.peknight" %%% "http4s-ext" % pekExtVersion,
-    ),
-  )
+  .settings(name := "acme-client-core")
+  .settings(crossDependencies(peknight.ext.http4s))
 
-lazy val acmeClientApi = (crossProject(JSPlatform, JVMPlatform) in file("acme-client/api"))
+lazy val acmeClientApi = (crossProject(JVMPlatform, JSPlatform) in file("acme-client/api"))
   .dependsOn(acmeClientCore)
-  .settings(commonSettings)
-  .settings(
-    name := "acme-client-api",
-    libraryDependencies ++= Seq(
-    ),
-  )
+  .settings(name := "acme-client-api")
 
-lazy val acmeClientHttp4s = (crossProject(JSPlatform, JVMPlatform) in file("acme-client/http4s"))
+lazy val acmeClientHttp4s = (crossProject(JVMPlatform, JSPlatform) in file("acme-client/http4s"))
   .dependsOn(
     acmeClientApi,
     acmeClientLetsEncrypt % Test,
     acmeClientCloudflare % Test,
   )
-  .settings(commonSettings)
-  .settings(
-    name := "acme-client-http4s",
-    libraryDependencies ++= Seq(
-      "org.http4s" %%% "http4s-client" % http4sVersion,
-      "com.peknight" %%% "codec-http4s-circe" % pekCodecVersion,
-      "com.peknight" %%% "security-http4s" % pekSecurityVersion,
-      "com.peknight" %%% "logging-core" % pekLoggingVersion,
-      "com.peknight" %%% "commons-time" % pekCommonsVersion,
-      "com.peknight" %%% "logback-config" % pekLoggingVersion % Test,
-      "com.peknight.cloudflare" %%% "zone-codec-instances" % pekCloudflareVersion % Test,
-      "com.peknight.cloudflare" %%% "dns-record-http4s" % pekCloudflareVersion % Test,
-      "org.http4s" %%% "http4s-dsl" % http4sVersion % Test,
-      "org.http4s" %%% "http4s-ember-client" % http4sVersion % Test,
-      "org.http4s" %%% "http4s-ember-server" % http4sVersion % Test,
-      "org.scalatest" %%% "scalatest-flatspec" % scalaTestVersion % Test,
-      "org.typelevel" %%% "cats-effect-testing-scalatest" % catsEffectTestingScalaTestVersion % Test,
-    ),
-  )
-  .jvmSettings(
-    libraryDependencies ++= Seq(
-      log4CatsSlf4j,
-      logbackClassic % Test,
-    ),
-  )
+  .settings(name := "acme-client-http4s")
+  .settings(crossDependencies(
+    http4s.client,
+    peknight.codec.http4s.circe,
+    peknight.security.http4s,
+    peknight.logging,
+    peknight.commons.time,
+  ))
+  .settings(crossTestDependencies(
+    peknight.logging.logback.config,
+    peknight.cloudflare.zone.instances.codec,
+    peknight.cloudflare.dns.record.http4s,
+    http4s.dsl,
+    http4s.ember.client,
+    http4s.ember.server,
+    scalaTest.flatSpec,
+    typelevel.catsEffect.testingScalaTest,
+  ))
+  .jvmSettings(libraryDependencies ++= Seq(
+    dependency(typelevel.log4Cats.slf4j),
+    jvmTestDependency(logback.classic),
+  ))
 
-lazy val acmeClientLetsEncrypt = (crossProject(JSPlatform, JVMPlatform) in file("acme-client/lets-encrypt"))
+lazy val acmeClientLetsEncrypt = (crossProject(JVMPlatform, JSPlatform) in file("acme-client/lets-encrypt"))
   .dependsOn(acmeCore)
-  .settings(commonSettings)
-  .settings(
-    name := "acme-client-lets-encrypt",
-    libraryDependencies ++= Seq(
-    ),
-  )
+  .settings(name := "acme-client-lets-encrypt")
 
-lazy val acmeClientCloudflare = (crossProject(JSPlatform, JVMPlatform) in file("acme-client/cloudflare"))
+lazy val acmeClientCloudflare = (crossProject(JVMPlatform, JSPlatform) in file("acme-client/cloudflare"))
   .dependsOn(acmeClientApi)
-  .settings(commonSettings)
-  .settings(
-    name := "acme-client-cloudflare",
-    libraryDependencies ++= Seq(
-      "com.peknight.cloudflare" %%% "dns-record-api" % pekCloudflareVersion,
-      "com.peknight" %%% "logging-core" % pekLoggingVersion,
-    ),
-  )
-  .jvmSettings(
-    libraryDependencies ++= Seq(
-      log4CatsSlf4j,
-    )
-  )
+  .settings(name := "acme-client-cloudflare")
+  .settings(crossDependencies(
+    peknight.cloudflare.dns.record.api,
+    peknight.logging,
+  ))
+  .jvmSettings(libraryDependencies ++= dependencies(typelevel.log4Cats.slf4j))
 
-lazy val acmeClientResource = (crossProject(JSPlatform, JVMPlatform) in file("acme-client/resource"))
-  .dependsOn(
-    acmeClientApi,
-  )
-  .settings(commonSettings)
-  .settings(
-    name := "acme-client-resource",
-    libraryDependencies ++= Seq(
-    ),
-  )
+lazy val acmeClientResource = (crossProject(JVMPlatform, JSPlatform) in file("acme-client/resource"))
+  .dependsOn(acmeClientApi)
+  .settings(name := "acme-client-resource")
 
-lazy val acmeClientApp = (crossProject(JSPlatform, JVMPlatform) in file("acme-client/app"))
+lazy val acmeClientApp = (crossProject(JVMPlatform, JSPlatform) in file("acme-client/app"))
   .dependsOn(
     acmeClientResource,
     acmeClientHttp4s,
     acmeClientLetsEncrypt,
     acmeClientCloudflare,
   )
-  .settings(commonSettings)
-  .settings(
-    name := "acme-client-app",
-    libraryDependencies ++= Seq(
-      "com.peknight" %%% "codec-effect" % pekCodecVersion,
-      "com.peknight" %%% "codec-fs2-io" % pekCodecVersion,
-      "com.peknight.cloudflare" %%% "dns-record-http4s" % pekCloudflareVersion,
-      "com.peknight.cloudflare" %%% "zone-codec-instances" % pekCloudflareVersion,
-      "org.http4s" %%% "http4s-ember-server" % http4sVersion,
-      "org.http4s" %%% "http4s-ember-client" % http4sVersion,
-    ),
-  )
-
-val http4sVersion = "1.0.0-M34"
-val log4CatsVersion = "2.7.1"
-val logbackVersion = "1.5.18"
-val scalaTestVersion = "3.2.19"
-val catsEffectTestingScalaTestVersion = "1.6.0"
-
-val pekVersion = "0.1.0-SNAPSHOT"
-val pekCommonsVersion = pekVersion
-val pekExtVersion = pekVersion
-val pekErrorVersion = pekVersion
-val pekMethodVersion = pekVersion
-val pekLoggingVersion = pekVersion
-val pekCodecVersion = pekVersion
-val pekSecurityVersion = pekVersion
-val pekJoseVersion = pekVersion
-val pekHttpVersion = pekVersion
-val pekCloudflareVersion = pekVersion
-
-val log4CatsSlf4j = "org.typelevel" %% "log4cats-slf4j" % log4CatsVersion
-val logbackClassic = "ch.qos.logback" % "logback-classic" % logbackVersion
-val pekLogbackConfig = "com.peknight" %% "logback-config" % pekLoggingVersion
+  .settings(name := "acme-client-app")
+  .settings(crossDependencies(
+    peknight.codec.effect,
+    peknight.codec.fs2.io,
+    peknight.cloudflare.dns.record.http4s,
+    peknight.cloudflare.zone.instances.codec,
+    http4s.ember.server,
+    http4s.ember.client,
+  ))
