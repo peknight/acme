@@ -18,8 +18,8 @@ import com.peknight.acme.directory.Directory
 import com.peknight.acme.error.ACMEError
 import com.peknight.acme.order.Order
 import com.peknight.acme.syntax.headers.getNonce
-import com.peknight.cats.effect.ext.Clock
-import com.peknight.cats.instances.time.instant.given
+import com.peknight.cats.effect.Clock
+import com.peknight.cats.instances.instant.given
 import com.peknight.codec.Decoder
 import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.codec.cursor.Cursor
@@ -29,8 +29,8 @@ import com.peknight.error.Error
 import com.peknight.error.option.OptionEmpty
 import com.peknight.error.syntax.applicativeError.asError
 import com.peknight.http.HttpResponse
-import com.peknight.http4s.ext.media.MediaRange.`application/json`
-import com.peknight.http4s.ext.syntax.headers.{getLastModified, getLinks, getLocation}
+import com.peknight.http4s.media.MediaRange.`application/json`
+import com.peknight.http4s.syntax.headers.{getLastModified, getLinks, getLocation}
 import com.peknight.jose.jws.JsonWebSignature
 import com.peknight.security.http4s.instances.x509Certificate.given
 import com.peknight.security.http4s.media.MediaRange.`application/pem-certificate-chain`

@@ -3,7 +3,7 @@ package com.peknight.acme.client.letsencrypt.challenge
 import cats.data.EitherT
 import cats.effect.Sync
 import com.peknight.acme.client.letsencrypt.challenge.Challenge.`http-01`
-import com.peknight.cats.ext.syntax.eitherT.eLiftET
+import com.peknight.cats.syntax.eitherT.eLiftET
 import com.peknight.error.Error
 import com.peknight.jose.jwk.JsonWebKey
 

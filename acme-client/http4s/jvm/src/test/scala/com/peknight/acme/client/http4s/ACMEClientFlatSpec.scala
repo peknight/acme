@@ -12,10 +12,9 @@ import com.peknight.acme.client.letsencrypt.challenge.Challenge
 import com.peknight.acme.client.letsencrypt.uri.{acmeStaging, resolve}
 import com.peknight.acme.identifier.Identifier
 import com.peknight.acme.identifier.Identifier.DNS
-import com.peknight.cats.ext.syntax.eitherT.eLiftET
+import com.peknight.cats.syntax.eitherT.eLiftET
 import com.peknight.cloudflare.dns.record.DNSRecordId
 import com.peknight.cloudflare.dns.record.http4s.DNSRecordApi
-import com.peknight.cloudflare.zone.codec.instances.config.cloudflareZoneConfig.given
 import com.peknight.cloudflare.zone.config.CloudflareZoneConfig
 import com.peknight.codec.Decoder
 import com.peknight.codec.reader.Key

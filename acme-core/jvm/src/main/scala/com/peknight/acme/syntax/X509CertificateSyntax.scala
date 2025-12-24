@@ -2,7 +2,7 @@ package com.peknight.acme.syntax
 
 import cats.data.EitherT
 import cats.effect.Sync
-import com.peknight.cats.ext.syntax.eitherT.eLiftET
+import com.peknight.cats.syntax.eitherT.eLiftET
 import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.error.Error
 import com.peknight.error.option.OptionEmpty
@@ -26,7 +26,7 @@ trait X509CertificateSyntax:
               holder <- Option(holder)
               extensions <- Option(holder.getExtensions)
               identifier <- Option(AuthorityKeyIdentifier.fromExtensions(extensions))
-              identifier <- Option(identifier.getKeyIdentifier)
+              identifier <- Option(identifier.getKeyIdentifierOctets)
             yield
               Base64UrlNoPad.fromByteVector(ByteVector(identifier))
           aki <- akiOption.toRight(OptionEmpty.label("authorityKeyIdentifier")).eLiftET

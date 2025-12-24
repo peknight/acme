@@ -5,7 +5,7 @@ import cats.data.EitherT
 import cats.effect.Sync
 import cats.syntax.either.*
 import com.peknight.acme.jose.JWSHeaderExt
-import com.peknight.cats.ext.syntax.eitherT.eLiftET
+import com.peknight.cats.syntax.eitherT.eLiftET
 import com.peknight.codec.Encoder
 import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.error.Error

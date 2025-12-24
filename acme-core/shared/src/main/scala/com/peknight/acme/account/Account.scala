@@ -1,7 +1,7 @@
 package com.peknight.acme.account
 
 import cats.{Monad, Show}
-import com.peknight.cats.instances.time.instant.given
+import com.peknight.cats.instances.instant.given
 import com.peknight.codec.circe.Ext
 import com.peknight.codec.circe.iso.codec
 import com.peknight.codec.circe.sum.jsonType.given

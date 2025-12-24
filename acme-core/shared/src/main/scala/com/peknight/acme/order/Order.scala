@@ -1,7 +1,7 @@
 package com.peknight.acme.order
 
 import cats.data.NonEmptyList
-import com.peknight.cats.instances.time.instant.given
+import com.peknight.cats.instances.instant.given
 import cats.{Monad, Show}
 import com.peknight.acme.error.ACMEError
 import com.peknight.acme.identifier.Identifier

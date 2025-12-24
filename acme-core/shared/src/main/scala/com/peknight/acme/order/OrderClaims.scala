@@ -3,7 +3,7 @@ package com.peknight.acme.order
 import cats.data.NonEmptyList
 import cats.{Monad, Show}
 import com.peknight.acme.identifier.Identifier
-import com.peknight.cats.instances.time.instant.given
+import com.peknight.cats.instances.instant.given
 import com.peknight.codec.circe.iso.codec
 import com.peknight.codec.circe.sum.jsonType.given
 import com.peknight.codec.config.CodecConfig

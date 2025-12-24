@@ -20,8 +20,8 @@ lazy val acmeCore = (crossProject(JVMPlatform, JSPlatform) in file("acme-core"))
     peknight.security.bouncyCastle.provider,
     peknight.security.bouncyCastle.pkix,
     peknight.security.instances.codec,
-    peknight.ext.catsEffect,
-    peknight.ext.http4s,
+    peknight.catsEffect,
+    peknight.http4s,
   ))
 
 lazy val acmeClient = (project in file("acme-client"))
@@ -46,7 +46,7 @@ lazy val acmeClient = (project in file("acme-client"))
 lazy val acmeClientCore = (crossProject(JVMPlatform, JSPlatform) in file("acme-client/core"))
   .dependsOn(acmeCore)
   .settings(name := "acme-client-core")
-  .settings(crossDependencies(peknight.ext.http4s))
+  .settings(crossDependencies(peknight.http4s))
 
 lazy val acmeClientApi = (crossProject(JVMPlatform, JSPlatform) in file("acme-client/api"))
   .dependsOn(acmeClientCore)
@@ -68,7 +68,7 @@ lazy val acmeClientHttp4s = (crossProject(JVMPlatform, JSPlatform) in file("acme
   ))
   .settings(crossTestDependencies(
     peknight.logging.logback.config,
-    peknight.cloudflare.zone.instances.codec,
+    peknight.cloudflare.zone.config,
     peknight.cloudflare.dns.record.http4s,
     http4s.dsl,
     http4s.ember.client,
@@ -109,8 +109,8 @@ lazy val acmeClientApp = (crossProject(JVMPlatform, JSPlatform) in file("acme-cl
   .settings(crossDependencies(
     peknight.codec.effect,
     peknight.codec.fs2.io,
+    peknight.cloudflare.zone.config,
     peknight.cloudflare.dns.record.http4s,
-    peknight.cloudflare.zone.instances.codec,
     http4s.ember.server,
     http4s.ember.client,
   ))

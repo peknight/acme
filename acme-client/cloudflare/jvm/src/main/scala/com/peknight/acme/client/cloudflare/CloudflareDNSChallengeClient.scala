@@ -12,7 +12,7 @@ import com.peknight.acme.client.api
 import com.peknight.acme.client.api.DNSChallengeClient
 import com.peknight.acme.identifier.Identifier.DNS
 import com.peknight.api.syntax.result.asError
-import com.peknight.cats.ext.syntax.eitherT.eLiftET
+import com.peknight.cats.syntax.eitherT.eLiftET
 import com.peknight.cloudflare.dns.record.api.DNSRecordApi
 import com.peknight.cloudflare.dns.record.body.DNSRecordBody
 import com.peknight.cloudflare.dns.record.body.DNSRecordBody.TXT

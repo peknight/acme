@@ -25,8 +25,8 @@ import com.peknight.acme.directory.Directory
 import com.peknight.acme.identifier.Identifier
 import com.peknight.acme.identifier.IdentifierType.dns
 import com.peknight.acme.order.*
-import com.peknight.cats.effect.ext.Clock
-import com.peknight.cats.ext.syntax.eitherT.{eLiftET, lLiftET, rLiftET}
+import com.peknight.cats.effect.Clock
+import com.peknight.cats.syntax.eitherT.{eLiftET, lLiftET, rLiftET}
 import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.codec.cursor.Cursor
 import com.peknight.codec.{Decoder, Encoder}

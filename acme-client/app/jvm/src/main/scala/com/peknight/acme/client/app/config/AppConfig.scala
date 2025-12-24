@@ -2,7 +2,6 @@ package com.peknight.acme.client.app.config
 
 import cats.MonadError
 import cats.effect.std.Env
-import com.peknight.cloudflare.zone.codec.instances.config.cloudflareZoneConfig.given
 import com.peknight.cloudflare.zone.config.CloudflareZoneConfig
 import com.peknight.codec.Decoder
 import com.peknight.codec.config.given
