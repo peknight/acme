@@ -37,7 +37,7 @@ import scala.concurrent.duration.*
 
 class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
 
-  "ACME Client" should "succeed" in {
+  "ACME Client" should "pass" in {
     val run =
       for
         logger <- Slf4jLogger.fromClass[IO](classOf[ACMEClientFlatSpec])
