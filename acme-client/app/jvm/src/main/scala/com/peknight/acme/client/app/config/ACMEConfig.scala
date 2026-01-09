@@ -20,9 +20,9 @@ import scala.concurrent.duration.*
 
 case class ACMEConfig(
                        serverUri: Uri = acmeStaging,
-                       accountKeyPath: Path = Path("cert/account.key"),
-                       domainKeyPath: Path = Path("cert/domain.key"),
-                       certificatePath: Path = Path("cert/domain.crt"),
+                       accountKeyPath: Path = Path("certs/account.key"),
+                       domainKeyPath: Path = Path("certs/domain.key"),
+                       certificatePath: Path = Path("certs/domain.crt"),
                        domainIdentifiers: NonEmptyList[DNS] = NonEmptyList.of(
                          DNS("*.peknight.com"), DNS("*.local.peknight.com"), DNS("*.server.peknight.com")
                        ),

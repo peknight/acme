@@ -56,10 +56,10 @@ class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                 given DNSRecordApi[IO] = DNSRecordApi[IO](config.token)
                 dnsChallengeClient <- CloudflareDNSChallengeClient[IO, Challenge](config.zoneId).asET
                 given CloudflareDNSChallengeClient[IO, Challenge] = dnsChallengeClient
-                accountKeyPair <- EitherT(fetchKeyPair[IO](Path("cert/account.key"))(
+                accountKeyPair <- EitherT(fetchKeyPair[IO](Path("certs/account.key"))(
                   RSA.keySizeGenerateKeyPair[IO](4096, provider = provider.some).asError))
-                certificates <- EitherT(fetchX509CertificatesAndKeyPair[IO](Path("cert/domain.crt"),
-                  Path("cert/domain.key"), provider.some, provider.some) {
+                certificates <- EitherT(fetchX509CertificatesAndKeyPair[IO](Path("certs/domain.crt"),
+                  Path("certs/domain.key"), provider.some, provider.some) {
                   val et =
                     for
                       identifiers <- NonEmptyList.of(
