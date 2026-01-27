@@ -72,7 +72,7 @@ enum ACMEErrorType:
   onionCAARequired
   def `type`: Uri = Uri.unsafeFromString(s"urn:ietf:params:acme:error:$this")
 end ACMEErrorType
-object ACMEErrorType extends App:
+object ACMEErrorType:
   given stringCodecACMEErrorType[F[_]: Applicative]: Codec[F, String, String, ACMEErrorType] =
     EnumCodecDerivation.unsafeDerivedStringCodecEnum[F, ACMEErrorType](using CodecConfig.default)
   given codecACMEErrorType[F[_]: Applicative, S: {StringType, Show}]: Codec[F, S, Cursor[S], ACMEErrorType] =
