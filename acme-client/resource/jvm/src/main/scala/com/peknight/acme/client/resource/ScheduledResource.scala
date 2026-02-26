@@ -25,7 +25,7 @@ object ScheduledResource:
    accountKeyPair: F[Either[Error, KeyPair]],
    domainKeyPair: F[Either[Error, KeyPair]],
    source: Source[F, (NonEmptyList[X509Certificate], KeyPair)],
-   identifiers: NonEmptyList[Identifier] = NonEmptyList.one(Identifier.DNS("*.peknight.com")),
+   identifiers: NonEmptyList[Identifier],
    threshold: FiniteDuration = 7.days,
    alias: String = "",
    keyPassword: String = "",

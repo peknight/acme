@@ -27,7 +27,7 @@ case class ACMEConfig(
                          DNS("*.peknight.com"), DNS("*.local.peknight.com"), DNS("*.server.peknight.com")
                        ),
                        checkInterval: FiniteDuration = 1.day,
-                       checkThreshold: FiniteDuration = 7.day,
+                       checkThreshold: FiniteDuration = 7.days,
                        directoryMaxAge: FiniteDuration = 10.minutes,
                        sleepAfterPrepare: FiniteDuration = 2.minutes,
                        queryChallengeTimeout: FiniteDuration = 1.minutes,
