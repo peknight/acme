@@ -20,7 +20,7 @@ trait DNS01Platform { self: `dns-01` =>
       for
         jwk <- JsonWebKey.fromKey(publicKey).eLiftET[F]
         thumbprint <- EitherT(jwk.calculateBase64UrlEncodedThumbprint[F]())
-        authorization = s"${self.token.value}.${thumbprint.value}"
+        authorization = s"${self.token.map(_.value).getOrElse("")}.${thumbprint.value}"
         input <- ByteVector.encodeUtf8(authorization).asError.eLiftET[F]
         sha256hash <- `SHA-256`.digest[F](input).asET
       yield

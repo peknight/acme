@@ -20,6 +20,9 @@ object Challenge:
     def `type`: ValidationMethod = `dns-01`
     def name(identifier: DNS): String
   end `dns-01`
+  trait `dns-persist-01` extends Challenge:
+    def `type`: ValidationMethod = `dns-persist-01`
+  end `dns-persist-01`
   trait `tls-sni-01` extends Challenge:
     def `type`: ValidationMethod = `tls-sni-01`
   end `tls-sni-01`

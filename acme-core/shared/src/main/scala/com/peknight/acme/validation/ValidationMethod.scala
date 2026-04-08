@@ -8,7 +8,7 @@ import com.peknight.codec.derivation.EnumCodecDerivation
 import com.peknight.codec.sum.StringType
 
 enum ValidationMethod:
-  case `http-01`, `dns-01`, `tls-sni-01`, `tls-sni-02`, `tls-alpn-01`, `email-reply-00`, `tkauth-01`, `onion-csr-01`
+  case `http-01`, `dns-01`, `dns-persist-01`, `tls-sni-01`, `tls-sni-02`, `tls-alpn-01`, `email-reply-00`, `tkauth-01`, `onion-csr-01`
 end ValidationMethod
 object ValidationMethod:
   given stringCodecValidationMethod[F[_]: Applicative]: Codec[F, String, String, ValidationMethod] =

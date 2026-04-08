@@ -16,6 +16,6 @@ trait HTTP01Platform { self: `http-01` =>
         jwk <- JsonWebKey.fromKey(publicKey).eLiftET[F]
         thumbprint <- EitherT(jwk.calculateBase64UrlEncodedThumbprint[F]())
       yield
-        s"${self.token.value}.${thumbprint.value}"
+        s"${self.token.map(_.value).getOrElse("")}.${thumbprint.value}"
     eitherT.value
 }

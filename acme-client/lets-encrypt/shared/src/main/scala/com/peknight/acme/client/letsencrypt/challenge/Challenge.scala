@@ -1,10 +1,9 @@
 package com.peknight.acme.client.letsencrypt.challenge
 
-import cats.syntax.functor.*
 import cats.{Monad, Show}
+import com.comcast.ip4s.Hostname
 import com.peknight.acme.challenge.ChallengeStatus
 import com.peknight.acme.error.ACMEError
-import com.peknight.acme.identifier.Identifier
 import com.peknight.acme.identifier.Identifier.DNS
 import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.codec.circe.Ext
@@ -13,6 +12,7 @@ import com.peknight.codec.circe.sum.jsonType.given
 import com.peknight.codec.config.CodecConfig
 import com.peknight.codec.cursor.Cursor
 import com.peknight.codec.http4s.instances.uri.given
+import com.peknight.codec.ip4s.instances.host.given
 import com.peknight.codec.sum.*
 import com.peknight.codec.{Codec, Decoder, Encoder}
 import io.circe.{Json, JsonObject}
@@ -21,54 +21,62 @@ import org.http4s.Uri
 import java.time.Instant
 
 sealed trait Challenge extends com.peknight.acme.challenge.Challenge with Ext:
-  def token: Base64UrlNoPad
+  def token: Option[Base64UrlNoPad]
   def validated: Option[Instant]
   def error: Option[ACMEError]
   def validationRecord: Option[List[ValidationRecord]]
 end Challenge
 object Challenge:
 
-  case class `http-01`(url: Uri, status: ChallengeStatus, token: Base64UrlNoPad, validated: Option[Instant] = None,
+  case class `http-01`(url: Uri, status: ChallengeStatus, token: Option[Base64UrlNoPad], validated: Option[Instant] = None,
                        validationRecord: Option[List[ValidationRecord]] = None, error: Option[ACMEError] = None,
                        ext: JsonObject = JsonObject.empty)
     extends Challenge with com.peknight.acme.challenge.Challenge.`http-01` with HTTP01Platform:
-    def name: String = token.value
+    def name: String = token.map(_.value).getOrElse("")
     def url(identifier: DNS): Uri = Uri.unsafeFromString(s"http://${identifier.value}/.well-known/acme-challenge/$name")
   end `http-01`
-  case class `dns-01`(url: Uri, status: ChallengeStatus, token: Base64UrlNoPad, validated: Option[Instant] = None,
+  case class `dns-01`(url: Uri, status: ChallengeStatus, token: Option[Base64UrlNoPad], validated: Option[Instant] = None,
                       validationRecord: Option[List[ValidationRecord]] = None, error: Option[ACMEError] = None,
                       ext: JsonObject = JsonObject.empty)
     extends Challenge with com.peknight.acme.challenge.Challenge.`dns-01` with DNS01Platform:
     private def toRRName(domain: String): String = s"_acme-challenge.$domain."
     def name(identifier: DNS): String = toRRName(identifier.value)
   end `dns-01`
-  case class `tls-sni-01`(url: Uri, status: ChallengeStatus, token: Base64UrlNoPad, validated: Option[Instant] = None,
-                          validationRecord: Option[List[ValidationRecord]] = None, error: Option[ACMEError] = None,
-                          ext: JsonObject = JsonObject.empty)
+  case class `dns-persist-01`(url: Uri, status: ChallengeStatus, token: Option[Base64UrlNoPad],
+                              issuerDomainNames: Option[List[Hostname]], validated: Option[Instant] = None,
+                              validationRecord: Option[List[ValidationRecord]] = None, error: Option[ACMEError] = None,
+                              ext: JsonObject = JsonObject.empty)
+    extends Challenge with com.peknight.acme.challenge.Challenge.`dns-persist-01`
+  case class `tls-sni-01`(url: Uri, status: ChallengeStatus, token: Option[Base64UrlNoPad],
+                          validated: Option[Instant] = None, validationRecord: Option[List[ValidationRecord]] = None,
+                          error: Option[ACMEError] = None, ext: JsonObject = JsonObject.empty)
     extends Challenge with com.peknight.acme.challenge.Challenge.`tls-sni-01`
-  case class `tls-sni-02`(url: Uri, status: ChallengeStatus, token: Base64UrlNoPad, validated: Option[Instant] = None,
-                          validationRecord: Option[List[ValidationRecord]] = None, error: Option[ACMEError] = None,
-                          ext: JsonObject = JsonObject.empty)
+  case class `tls-sni-02`(url: Uri, status: ChallengeStatus, token: Option[Base64UrlNoPad],
+                          validated: Option[Instant] = None, validationRecord: Option[List[ValidationRecord]] = None,
+                          error: Option[ACMEError] = None, ext: JsonObject = JsonObject.empty)
     extends Challenge with com.peknight.acme.challenge.Challenge.`tls-sni-02`
-  case class `tls-alpn-01`(url: Uri, status: ChallengeStatus, token: Base64UrlNoPad, validated: Option[Instant] = None,
-                           validationRecord: Option[List[ValidationRecord]] = None, error: Option[ACMEError] = None,
-                           ext: JsonObject = JsonObject.empty)
+  case class `tls-alpn-01`(url: Uri, status: ChallengeStatus, token: Option[Base64UrlNoPad],
+                           validated: Option[Instant] = None, validationRecord: Option[List[ValidationRecord]] = None,
+                           error: Option[ACMEError] = None, ext: JsonObject = JsonObject.empty)
     extends Challenge with com.peknight.acme.challenge.Challenge.`tls-alpn-01`
-  case class `email-reply-00`(url: Uri, status: ChallengeStatus, token: Base64UrlNoPad,
+  case class `email-reply-00`(url: Uri, status: ChallengeStatus, token: Option[Base64UrlNoPad],
                               validated: Option[Instant] = None, validationRecord: Option[List[ValidationRecord]] = None,
                               error: Option[ACMEError] = None, ext: JsonObject = JsonObject.empty)
     extends Challenge with com.peknight.acme.challenge.Challenge.`email-reply-00`
-  case class `tkauth-01`(url: Uri, status: ChallengeStatus, token: Base64UrlNoPad, validated: Option[Instant] = None,
-                         validationRecord: Option[List[ValidationRecord]] = None, error: Option[ACMEError] = None,
-                         ext: JsonObject = JsonObject.empty)
+  case class `tkauth-01`(url: Uri, status: ChallengeStatus, token: Option[Base64UrlNoPad],
+                         validated: Option[Instant] = None, validationRecord: Option[List[ValidationRecord]] = None,
+                         error: Option[ACMEError] = None, ext: JsonObject = JsonObject.empty)
     extends Challenge with com.peknight.acme.challenge.Challenge.`tkauth-01`
-  case class `onion-csr-01`(url: Uri, status: ChallengeStatus, token: Base64UrlNoPad, validated: Option[Instant] = None,
-                            validationRecord: Option[List[ValidationRecord]] = None, error: Option[ACMEError] = None,
-                            ext: JsonObject = JsonObject.empty)
+  case class `onion-csr-01`(url: Uri, status: ChallengeStatus, token: Option[Base64UrlNoPad],
+                            validated: Option[Instant] = None, validationRecord: Option[List[ValidationRecord]] = None,
+                            error: Option[ACMEError] = None, ext: JsonObject = JsonObject.empty)
     extends Challenge with com.peknight.acme.challenge.Challenge.`onion-csr-01`
 
   private given codecConfig: CodecConfig =
-    CodecConfig.default.withDiscriminator("type").withExtField("ext")
+    CodecConfig.default.withDiscriminator("type").withExtField("ext").withTransformMemberName {
+      case "issuerDomainNames" => "issuer-domain-names"
+      case memberName => memberName
+    }
 
   given codecHttp01[F[_], S](using Monad[F], ObjectType[S], NullType[S], ArrayType[S], BooleanType[S], NumberType[S],
                              StringType[S], Encoder[F, S, JsonObject], Decoder[F, Cursor[S], JsonObject], Show[S])
@@ -79,6 +87,12 @@ object Challenge:
                             StringType[S], Encoder[F, S, JsonObject], Decoder[F, Cursor[S], JsonObject], Show[S])
   : Codec[F, S, Cursor[S], `dns-01`] =
     Codec.derived[F, S, `dns-01`]
+
+  given codecDnsPersist01[F[_], S](using Monad[F], ObjectType[S], NullType[S], ArrayType[S], BooleanType[S],
+                                   NumberType[S], StringType[S], Encoder[F, S, JsonObject],
+                                   Decoder[F, Cursor[S], JsonObject], Show[S])
+  : Codec[F, S, Cursor[S], `dns-persist-01`] =
+    Codec.derived[F, S, `dns-persist-01`]
 
   given codecTlsSni01[F[_], S](using Monad[F], ObjectType[S], NullType[S], ArrayType[S], BooleanType[S], NumberType[S],
                                StringType[S], Encoder[F, S, JsonObject], Decoder[F, Cursor[S], JsonObject], Show[S])
