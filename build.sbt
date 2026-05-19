@@ -37,6 +37,8 @@ lazy val acmeClient = (project in file("acme-client"))
     acmeClientLetsEncrypt.js,
     acmeClientCloudflare.jvm,
     acmeClientCloudflare.js,
+    acmeClientStream.jvm,
+    acmeClientStream.js,
     acmeClientResource.jvm,
     acmeClientResource.js,
     acmeClientApp.jvm,
@@ -93,6 +95,10 @@ lazy val acmeClientCloudflare = (crossProject(JVMPlatform, JSPlatform) in file("
     peknight.logging,
   ))
   .jvmSettings(libraryDependencies ++= dependencies(typelevel.log4Cats.slf4j))
+
+lazy val acmeClientStream = (crossProject(JVMPlatform, JSPlatform) in file("acme-client/stream"))
+  .dependsOn(acmeClientApi)
+  .settings(name := "acme-client-stream")
 
 lazy val acmeClientResource = (crossProject(JVMPlatform, JSPlatform) in file("acme-client/resource"))
   .dependsOn(acmeClientApi)
