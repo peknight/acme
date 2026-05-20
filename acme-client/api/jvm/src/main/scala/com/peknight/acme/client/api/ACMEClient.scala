@@ -3,6 +3,7 @@ package com.peknight.acme.client.api
 import cats.data.NonEmptyList
 import com.peknight.acme.account.{Account, AccountClaims}
 import com.peknight.acme.authorization.{Authorization, PreAuthorizationClaims}
+import com.peknight.acme.client.IssueConfig
 import com.peknight.acme.context.ACMEContext
 import com.peknight.acme.directory.Directory
 import com.peknight.acme.identifier.Identifier
@@ -11,12 +12,10 @@ import com.peknight.codec.base.Base64UrlNoPad
 import com.peknight.error.Error
 import com.peknight.http.HttpResponse
 import com.peknight.security.certificate.revocation.list.ReasonCode
-import com.peknight.security.provider.Provider
 import org.http4s.Uri
 
 import java.security.cert.{Certificate, X509Certificate}
-import java.security.{KeyPair, PublicKey, Provider as JProvider}
-import scala.concurrent.duration.*
+import java.security.{KeyPair, PublicKey}
 
 trait ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge]:
   def directory: F[Either[Error, Directory]]
@@ -45,15 +44,7 @@ trait ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge]:
   : F[Either[Error, (NonEmptyList[X509Certificate], Option[List[Uri]])]]
   def revokeCertificate(certificate: Certificate, keyPair: KeyPair, accountLocation: Uri,
                         reason: Option[ReasonCode] = None): F[Either[Error, Unit]]
-  def fetchCertificate[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, Record](
-    identifiers: NonEmptyList[Identifier],
-    accountKeyPair: F[Either[Error, KeyPair]],
-    domainKeyPair: F[Either[Error, KeyPair]],
-    sleepAfterPrepare: FiniteDuration = 2.minutes,
-    queryChallengeTimeout: FiniteDuration = 1.minutes,
-    queryChallengeInterval: FiniteDuration = 3.seconds,
-    queryOrderTimeout: FiniteDuration = 1.minutes,
-    queryOrderInterval: FiniteDuration = 3.seconds,
-    provider: Option[Provider | JProvider] = None
-  )(using challengeClient: ChallengeClient[F, Challenge, I, C, Record]): F[Either[Error, ACMEContext[Challenge]]]
+  def issue[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, Record]
+           (config: IssueConfig[F])
+           (using challengeClient: ChallengeClient[F, Challenge, I, C, Record]): F[Either[Error, ACMEContext[Challenge]]]
 end ACMEClient

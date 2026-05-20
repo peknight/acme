@@ -16,10 +16,10 @@ import com.peknight.acme.authorization.{Authorization, AuthorizationClaims, Auth
 import com.peknight.acme.bouncycastle.pkcs.PKCS10CertificationRequest
 import com.peknight.acme.certificate.RevokeClaims
 import com.peknight.acme.challenge.{ChallengeClaims, ChallengeStatus}
-import com.peknight.acme.client.api
 import com.peknight.acme.client.api.ChallengeClient
 import com.peknight.acme.client.error.*
 import com.peknight.acme.client.jose.{signEmptyString, signJson}
+import com.peknight.acme.client.{IssueConfig, api}
 import com.peknight.acme.context.ACMEContext
 import com.peknight.acme.directory.Directory
 import com.peknight.acme.identifier.Identifier
@@ -44,7 +44,6 @@ import com.peknight.logging.syntax.eitherT.log
 import com.peknight.method.retry.{Retry, RetryState}
 import com.peknight.security.certificate.revocation.list.ReasonCode
 import com.peknight.security.certificate.showCertificate
-import com.peknight.security.provider.Provider
 import com.peknight.validation.std.either.isTrue
 import io.circe.Json
 import org.bouncycastle.asn1.x509.GeneralNames
@@ -55,7 +54,7 @@ import org.typelevel.log4cats.slf4j.Slf4jLogger
 import scodec.bits.ByteVector
 
 import java.security.cert.{Certificate, X509Certificate}
-import java.security.{KeyPair, PublicKey, Provider as JProvider}
+import java.security.{KeyPair, PublicKey}
 import java.util.Locale
 import scala.concurrent.duration.*
 
@@ -259,29 +258,20 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
         response
     eitherT.value
 
-  def fetchCertificate[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, Record](
-    identifiers: NonEmptyList[Identifier],
-    accountKeyPair: F[Either[Error, KeyPair]],
-    domainKeyPair: F[Either[Error, KeyPair]],
-    sleepAfterPrepare: FiniteDuration = 2.minutes,
-    queryChallengeTimeout: FiniteDuration = 1.minutes,
-    queryChallengeInterval: FiniteDuration = 3.seconds,
-    queryOrderTimeout: FiniteDuration = 1.minutes,
-    queryOrderInterval: FiniteDuration = 3.seconds,
-    provider: Option[Provider | JProvider] = None
-  )(using challengeClient: ChallengeClient[F, Challenge, I, C, Record])
-  : F[Either[Error, ACMEContext[Challenge]]] =
+  def issue[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, Record](
+    config: IssueConfig[F]
+  )(using challengeClient: ChallengeClient[F, Challenge, I, C, Record]): F[Either[Error, ACMEContext[Challenge]]] =
     given Show[I] = Identifier.showIdentifier.contramap[I](identity)
     given Show[C] = Show[Challenge].contramap[C](_.asInstanceOf)
     given Show[Record] = Show.fromToString[Record]
     given Show[GeneralNames] = Show.show(_.getNames.mkString("GeneralNames(", ",", ")"))
     val eitherT =
       for
-        accountKeyPair <- EitherT(accountKeyPair).log[Unit]("ACMEClient#accountKeyPair")
+        accountKeyPair <- EitherT(config.accountKeyPair).log[Unit]("ACMEClient#accountKeyPair")
         accountClaims = AccountClaims(termsOfServiceAgreed = true.some)
         (account, accountLocation) <- EitherT(newAccount(accountClaims, accountKeyPair))
           .log("ACMEClient#newAccount", accountClaims.some)
-        orderClaims = OrderClaims(identifiers)
+        orderClaims = OrderClaims(config.identifiers)
         (order, orderLocation) <- EitherT(newOrder(orderClaims, accountKeyPair, accountLocation))
           .log("ACMEClient#newOrder", orderClaims.some)
         authorizations <- order.authorizations.parTraverse { authorizationUri =>
@@ -299,7 +289,7 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
             }.use {
               case Some((identifier, challenge, a)) =>
                 for
-                  _ <- GenTemporal[F].sleep(sleepAfterPrepare).asET
+                  _ <- GenTemporal[F].sleep(config.postChallengeDelay).asET
                   challenge <- EitherT(updateChallenge(challenge.url, accountKeyPair, accountLocation))
                     .log("ACMEClient#updateChallenge", challenge.url.some)
                   challenge <-
@@ -307,9 +297,9 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
                       challenge.rLiftET
                     else
                       for
-                        _ <- GenTemporal[F].sleep(queryChallengeInterval).asET
+                        _ <- GenTemporal[F].sleep(config.challengePoll.interval).asET
                         challenge <- EitherT(queryChallengeRetry(challenge.url, accountKeyPair, accountLocation)(
-                          queryChallengeTimeout, queryChallengeInterval))
+                          config.challengePoll.timeout, config.challengePoll.interval))
                       yield
                         challenge
                   challenge <- isTrue(challenge.status === ChallengeStatus.valid,
@@ -325,12 +315,13 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
           yield
             authorization
         }
-        order <- EitherT(queryOrderRetry(orderLocation, accountKeyPair, accountLocation)(queryOrderTimeout,
-          queryOrderInterval, Set(OrderStatus.ready, OrderStatus.valid, OrderStatus.invalid)))
+        order <- EitherT(queryOrderRetry(orderLocation, accountKeyPair, accountLocation)(config.orderPoll.timeout,
+          config.orderPoll.interval, Set(OrderStatus.ready, OrderStatus.valid, OrderStatus.invalid)))
         _ <- isTrue(order.status === OrderStatus.ready, OrderStatusNotReady(order.status)).eLiftET
         generalNames <- order.toGeneralNames.eLiftET
-        domainKeyPair <- EitherT(domainKeyPair).log[Unit]("ACMEClient#domainKeyPair")
-        csr <- EitherT(PKCS10CertificationRequest.certificateSigningRequest[F](generalNames, domainKeyPair, provider))
+        domainKeyPair <- EitherT(config.domainKeyPair).log[Unit]("ACMEClient#domainKeyPair")
+        csr <- EitherT(PKCS10CertificationRequest.certificateSigningRequest[F](generalNames, domainKeyPair,
+          config.csrProvider))
           .map(csr => Base64UrlNoPad.fromByteVector(ByteVector(csr.getEncoded)))
           .log("ACMEClient#certificateSigningRequest", generalNames.some)
         finalizeClaims = FinalizeClaims(csr)
@@ -340,9 +331,9 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
           if Set(OrderStatus.valid, OrderStatus.invalid).contains(order.status) then order.rLiftET
           else
             for
-              _ <- GenTemporal[F].sleep(queryOrderInterval).asET
-              order <- EitherT(queryOrderRetry(orderLocation, accountKeyPair, accountLocation)(queryOrderTimeout,
-                queryOrderInterval, Set(OrderStatus.valid, OrderStatus.invalid)))
+              _ <- GenTemporal[F].sleep(config.orderPoll.interval).asET
+              order <- EitherT(queryOrderRetry(orderLocation, accountKeyPair, accountLocation)(config.orderPoll.timeout,
+                config.orderPoll.interval, Set(OrderStatus.valid, OrderStatus.invalid)))
             yield
               order
         _ <- isTrue(order.status === OrderStatus.valid, OrderStatusNotValid(order.status)).eLiftET
@@ -353,7 +344,7 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
       yield
         ACMEContext(accountKeyPair, domainKeyPair, certificates, account, accountLocation, order, orderLocation,
           authorizations, alternates)
-    eitherT.log("ACMEClient#fetchCertificate", identifiers.some).value
+    eitherT.log("ACMEClient#issue", config.identifiers.some).value
 
   private def postAsGet[A, B](uri: Uri, payload: A, keyPair: KeyPair, accountLocation: Option[Uri] = None)
                              (f: (JsonWebSignature, Uri) => F[Either[Error, B]])

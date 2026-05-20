@@ -82,7 +82,7 @@ object ScheduledServer:
           writeX509CertificatesAndKeyPair(config.acme.certificatePath, config.acme.domainKeyPath)
         ),
         config.acme.domainIdentifiers, config.acme.checkThreshold, config.keyStore.alias, config.keyStore.keyPassword,
-        config.acme.sleepAfterPrepare, config.acme.queryChallengeTimeout, config.acme.queryChallengeInterval,
+        config.acme.postChallengeDelay, config.acme.queryChallengeTimeout, config.acme.queryChallengeInterval,
         config.acme.queryOrderTimeout, config.acme.queryOrderInterval, provider.some, none
       ) { (keyStore, certificates, keyPair) =>
         for

@@ -7,6 +7,7 @@ import cats.syntax.monadError.*
 import cats.syntax.option.*
 import com.peknight.acme.challenge.Challenge as ACMEChallenge
 import com.peknight.acme.client.api.{ACMEClient, ChallengeClient}
+import com.peknight.acme.client.{IssueConfig, PollConfig}
 import com.peknight.acme.identifier.Identifier
 import com.peknight.error.Error
 import com.peknight.error.option.OptionEmpty
@@ -21,21 +22,21 @@ import scala.concurrent.duration.*
 
 object ScheduledResource:
   def apply[F[_], Challenge <: ACMEChallenge, I <: Identifier, Child <: ACMEChallenge, Record, A](
-   scheduler: Stream[F, ?],
-   accountKeyPair: F[Either[Error, KeyPair]],
-   domainKeyPair: F[Either[Error, KeyPair]],
-   source: Source[F, (NonEmptyList[X509Certificate], KeyPair)],
-   identifiers: NonEmptyList[Identifier],
-   threshold: FiniteDuration = 7.days,
-   alias: String = "",
-   keyPassword: String = "",
-   sleepAfterPrepare: FiniteDuration = 2.minutes,
-   queryChallengeTimeout: FiniteDuration = 1.minutes,
-   queryChallengeInterval: FiniteDuration = 3.seconds,
-   queryOrderTimeout: FiniteDuration = 1.minutes,
-   queryOrderInterval: FiniteDuration = 3.seconds,
-   csrProvider: Option[Provider | JProvider] = None,
-   keyStoreProvider: Option[Provider | JProvider] = None
+    scheduler: Stream[F, ?],
+    accountKeyPair: F[Either[Error, KeyPair]],
+    domainKeyPair: F[Either[Error, KeyPair]],
+    source: Source[F, (NonEmptyList[X509Certificate], KeyPair)],
+    identifiers: NonEmptyList[Identifier],
+    threshold: FiniteDuration = 7.days,
+    alias: String = "",
+    keyPassword: String = "",
+    postChallengeDelay: FiniteDuration = 2.minutes,
+    queryChallengeTimeout: FiniteDuration = 1.minutes,
+    queryChallengeInterval: FiniteDuration = 3.seconds,
+    queryOrderTimeout: FiniteDuration = 1.minutes,
+    queryOrderInterval: FiniteDuration = 3.seconds,
+    csrProvider: Option[Provider | JProvider] = None,
+    keyStoreProvider: Option[Provider | JProvider] = None
   )(
     resourceF: (KeyStore, NonEmptyList[X509Certificate], KeyPair) => F[Resource[F, A]]
   )(
@@ -43,17 +44,17 @@ object ScheduledResource:
     acmeClient: ACMEClient[F, Challenge], challengeClient: ChallengeClient[F, Challenge, I, Child, Record],
     async: Async[F])
   : Resource[F, Ref[F, ((NonEmptyList[X509Certificate], KeyPair), A)]] =
-    val fetchCertificate = acmeClient.fetchCertificate[I, Child, Record](identifiers, accountKeyPair, domainKeyPair,
-        sleepAfterPrepare, queryChallengeTimeout, queryChallengeInterval, queryOrderTimeout, queryOrderInterval,
-        csrProvider)
+    val issue = acmeClient.issue[I, Child, Record](IssueConfig(identifiers, accountKeyPair, domainKeyPair,
+      postChallengeDelay, PollConfig(queryChallengeTimeout, queryChallengeInterval),
+      PollConfig(queryOrderTimeout, queryOrderInterval), csrProvider))
       .map(_.map(context => (context.certificates, context.domainKeyPair)))
     SecurityScheduledResource[F, A](scheduler, threshold, alias, keyPassword, keyStoreProvider)(
-      fetch[F, (NonEmptyList[X509Certificate], KeyPair)](source, Source.read(fetchCertificate.map(_.map(_.some))))
+      fetch[F, (NonEmptyList[X509Certificate], KeyPair)](source, Source.read(issue.map(_.map(_.some))))
         .map(_.flatMap(_.toRight(OptionEmpty.label("certificatesAndKeyPair")))).rethrow
     ) {
       val eitherT =
         for
-          (certificates, domainKeyPair) <- EitherT(fetchCertificate)
+          (certificates, domainKeyPair) <- EitherT(issue)
           _ <- EitherT(source.write((certificates, domainKeyPair)))
         yield
           (certificates, domainKeyPair)

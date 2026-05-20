@@ -7,6 +7,7 @@ import cats.syntax.applicative.*
 import cats.syntax.either.*
 import cats.syntax.option.*
 import com.peknight.acme.challenge.Challenge.`dns-01`
+import com.peknight.acme.client.IssueConfig
 import com.peknight.acme.client.cloudflare.CloudflareDNSChallengeClient
 import com.peknight.acme.client.letsencrypt.challenge.Challenge
 import com.peknight.acme.client.letsencrypt.uri.{acmeStaging, resolve}
@@ -65,12 +66,12 @@ class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                       identifiers <- NonEmptyList.of(
                         "*.peknight.com",
                       ).traverse(domain => Identifier.dns(domain).eLiftET[IO])
-                      context <- EitherT(acmeClient.fetchCertificate[DNS, `dns-01`, DNSRecordId](
+                      context <- EitherT(acmeClient.issue[DNS, `dns-01`, DNSRecordId](IssueConfig[IO](
                         identifiers,
                         accountKeyPair.asRight.pure,
                         secp384r1.generateKeyPair[IO](provider = provider.some).asError,
-                        provider = provider.some
-                      ))
+                        csrProvider = provider.some
+                      )))
                     yield
                       (context.certificates, context.domainKeyPair)
                   et.value

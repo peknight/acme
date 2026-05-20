@@ -29,7 +29,7 @@ case class ACMEConfig(
                        checkInterval: FiniteDuration = 1.day,
                        checkThreshold: FiniteDuration = 7.days,
                        directoryMaxAge: FiniteDuration = 10.minutes,
-                       sleepAfterPrepare: FiniteDuration = 2.minutes,
+                       postChallengeDelay: FiniteDuration = 2.minutes,
                        queryChallengeTimeout: FiniteDuration = 1.minutes,
                        queryChallengeInterval: FiniteDuration = 3.seconds,
                        queryOrderTimeout: FiniteDuration = 1.minutes,
