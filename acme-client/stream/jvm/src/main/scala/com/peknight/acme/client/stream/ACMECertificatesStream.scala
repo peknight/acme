@@ -1,5 +1,6 @@
 package com.peknight.acme.client.stream
 
+import cats.Applicative
 import cats.data.NonEmptyList
 import cats.effect.*
 import cats.syntax.applicative.*
@@ -45,16 +46,23 @@ object ACMECertificatesStream:
       .map(_.map(context => (context.certificates, context.domainKeyPair)))
     unfoldTemporal[F, Unit, (NonEmptyList[X509Certificate], KeyPair)](()) { _ =>
       fetchCertificate.flatMap {
-        case Right((certificates, keyPair)) => Option(certificates.head.getNotAfter).map(_.toInstant - threshold) match
-          case Some(thresholdInstant) => Clock[F].realTimeInstant.map { now =>
-            val interval =
-              if now < thresholdInstant then (thresholdInstant.toEpochMilli - now.toEpochMilli).millis
-              else retryInterval
-            (((certificates, keyPair), ()).some, interval.some)
-          }
-          case _ => (((certificates, keyPair), ()).some, none[FiniteDuration]).pure[F]
+        case Right((certificates, keyPair)) =>
+          interval[F](certificates, threshold, retryInterval).map(i => (((certificates, keyPair), ()).some, i))
         case _ => (none[((NonEmptyList[X509Certificate], KeyPair), Unit)], retryInterval.some).pure[F]
       }
     }
   end apply
+
+  private def interval[F[_]: {Applicative, Clock}](certificates: NonEmptyList[X509Certificate],
+                                                   threshold: FiniteDuration, retryInterval: FiniteDuration)
+  : F[Option[FiniteDuration]] =
+    Option(certificates.head.getNotAfter) match
+      case Some(notAfter) =>
+        val thresholdInstant = notAfter.toInstant - threshold
+        Clock[F].realTimeInstant.map { now =>
+          if now < thresholdInstant then (thresholdInstant.toEpochMilli - now.toEpochMilli).millis.some
+          else retryInterval.some
+        }
+      case _ => none[FiniteDuration].pure[F]
+
 end ACMECertificatesStream
