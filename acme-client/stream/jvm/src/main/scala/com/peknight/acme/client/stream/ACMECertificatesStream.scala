@@ -25,8 +25,8 @@ import scala.concurrent.duration.*
 object ACMECertificatesStream:
   def apply[F[_], Challenge <: ACMEChallenge, I <: Identifier, Child <: ACMEChallenge, Record, A](
     config: IssueConfig[F],
-    threshold: FiniteDuration = 7.days,
-    retryInterval: FiniteDuration = 1.hour,
+    renewalWindow: FiniteDuration = 7.days,
+    issueRetryInterval: FiniteDuration = 1.hour,
   )(
     using
     acmeClient: ACMEClient[F, Challenge], challengeClient: ChallengeClient[F, Challenge, I, Child, Record],
@@ -40,8 +40,8 @@ object ACMECertificatesStream:
       .map(_.map(context => (context.certificates, context.domainKeyPair)))
       .flatMap {
         case Right((certificates, keyPair)) =>
-          interval[F](certificates, threshold, retryInterval).map(i => (((certificates, keyPair), ()).some, i))
-        case _ => (none[((NonEmptyList[X509Certificate], KeyPair), Unit)], retryInterval.some).pure[F]
+          interval[F](certificates, renewalWindow, issueRetryInterval).map(i => (((certificates, keyPair), ()).some, i))
+        case _ => (none[((NonEmptyList[X509Certificate], KeyPair), Unit)], issueRetryInterval.some).pure[F]
       }
     )
   end apply
