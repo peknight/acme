@@ -13,7 +13,6 @@ import com.peknight.codec.sum.*
 import com.peknight.codec.{Codec, Decoder, Encoder}
 import com.peknight.error.Error
 import com.peknight.error.syntax.`try`.asError
-import com.peknight.generic.derivation.show
 import io.circe.{Json, JsonObject}
 
 import java.net.IDN

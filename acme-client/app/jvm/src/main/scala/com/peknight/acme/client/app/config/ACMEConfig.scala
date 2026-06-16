@@ -3,6 +3,7 @@ package com.peknight.acme.client.app.config
 import cats.MonadError
 import cats.data.NonEmptyList
 import cats.effect.std.Env
+import com.peknight.acme.client.PollConfig
 import com.peknight.acme.client.letsencrypt.uri.acmeStaging
 import com.peknight.acme.identifier.Identifier.{DNS, stringDecodeDNS}
 import com.peknight.codec.Decoder
@@ -26,14 +27,12 @@ case class ACMEConfig(
                        domainIdentifiers: NonEmptyList[DNS] = NonEmptyList.of(
                          DNS("*.peknight.com"), DNS("*.local.peknight.com"), DNS("*.server.peknight.com")
                        ),
-                       checkInterval: FiniteDuration = 1.day,
-                       checkThreshold: FiniteDuration = 7.days,
+                       renewalWindow: FiniteDuration = 7.days,
+                       issueRetryInterval: FiniteDuration = 1.hour,
                        directoryMaxAge: FiniteDuration = 10.minutes,
                        postChallengeDelay: FiniteDuration = 2.minutes,
-                       queryChallengeTimeout: FiniteDuration = 1.minutes,
-                       queryChallengeInterval: FiniteDuration = 3.seconds,
-                       queryOrderTimeout: FiniteDuration = 1.minutes,
-                       queryOrderInterval: FiniteDuration = 3.seconds,
+                       challengePoll: PollConfig = PollConfig.default,
+                       orderPoll: PollConfig = PollConfig.default,
                        compression: Boolean = true,
                        logHttp: Boolean = true,
                      )

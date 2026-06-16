@@ -10,24 +10,27 @@ import cats.syntax.functor.*
 import cats.syntax.monadError.*
 import cats.syntax.option.*
 import com.peknight.acme.challenge.Challenge.`dns-01`
+import com.peknight.acme.client.IssueConfig
 import com.peknight.acme.client.app.config.AppConfig
 import com.peknight.acme.client.app.context.{AppContext, ServerContext}
 import com.peknight.acme.client.cloudflare.CloudflareDNSChallengeClient
 import com.peknight.acme.client.http4s.ACMEClient
 import com.peknight.acme.client.letsencrypt.challenge.Challenge
 import com.peknight.acme.client.letsencrypt.uri.resolve
-import com.peknight.acme.client.resource.ScheduledResource
+import com.peknight.acme.client.stream.ACMECertificatesStream
 import com.peknight.acme.identifier.Identifier.DNS
 import com.peknight.cloudflare.dns.record.DNSRecordId
 import com.peknight.cloudflare.dns.record.http4s.DNSRecordApi
 import com.peknight.codec.Decoder
 import com.peknight.error.syntax.applicativeError.asError
+import com.peknight.fs2.syntax.stream.resource
 import com.peknight.method.cascade.Source
 import com.peknight.security.Security
 import com.peknight.security.bouncycastle.jce.provider.BouncyCastleProvider
 import com.peknight.security.bouncycastle.openssl.{fetchKeyPair, readX509CertificatesAndKeyPair, writeX509CertificatesAndKeyPair}
 import com.peknight.security.cipher.RSA
 import com.peknight.security.ecc.sec.secp384r1
+import com.peknight.security.key.store.pkcs12
 import fs2.Stream
 import fs2.io.file.Files
 import fs2.io.net.Network
@@ -73,25 +76,22 @@ object ScheduledServer:
       given DNSRecordApi[F] = dnsRecordApi
       dnsChallengeClient <- Resource.eval(CloudflareDNSChallengeClient[F, Challenge](config.cloudflare.zoneId))
       given CloudflareDNSChallengeClient[F, Challenge] = dnsChallengeClient
-      serverRef <- ScheduledResource[F, Challenge, DNS, `dns-01`, DNSRecordId, Server](
-        Stream.awakeEvery[F](config.acme.checkInterval),
-        fetchKeyPair[F](config.acme.accountKeyPath)(RSA.keySizeGenerateKeyPair[F](4096, provider = provider.some).asError),
-        secp384r1.generateKeyPair[F](provider = provider.some).asError,
-        Source[F, (NonEmptyList[X509Certificate], KeyPair)](
-          readX509CertificatesAndKeyPair(config.acme.certificatePath, config.acme.domainKeyPath, none, provider.some),
-          writeX509CertificatesAndKeyPair(config.acme.certificatePath, config.acme.domainKeyPath)
-        ),
-        config.acme.domainIdentifiers, config.acme.checkThreshold, config.keyStore.alias, config.keyStore.keyPassword,
-        config.acme.postChallengeDelay, config.acme.queryChallengeTimeout, config.acme.queryChallengeInterval,
-        config.acme.queryOrderTimeout, config.acme.queryOrderInterval, provider.some, none
-      ) { (keyStore, certificates, keyPair) =>
+      serverRef <- ACMECertificatesStream.persisted[F, Challenge, DNS, `dns-01`, DNSRecordId](
+        IssueConfig(config.acme.domainIdentifiers, config.acme.postChallengeDelay, config.acme.challengePoll, config.acme.orderPoll),
+        config.acme.accountKeyPath, config.acme.domainKeyPath, config.acme.certificatePath,
+        config.acme.renewalWindow, config.acme.issueRetryInterval, none, provider.some, none,
+        provider.some
+      )(
+        RSA.keySizeGenerateKeyPair[F](4096, provider = provider.some).asError,
+        secp384r1.generateKeyPair[F](provider = provider.some).asError
+      ).resource{ (certificates, keyPair) =>
         for
-          tlsContext <- Network.forAsync[F].tlsContext.fromKeyStore(keyStore, config.keyStore.keyPassword.toCharArray)
+          keyStore <- Resource.eval(pkcs12[F](config.keyStore.alias, keyPair.getPrivate, config.keyStore.keyPassword, certificates, none))
+          tlsContext <- Resource.eval(Network.forAsync[F].tlsContext.fromKeyStore(keyStore, config.keyStore.keyPassword.toCharArray))
           serverContext = ServerContext[F](client, acmeClient, dnsRecordApi, dnsChallengeClient, certificates,
             keyPair, keyStore, provider)
-          f <- appF(serverContext)
-        yield
-          EmberServerBuilder.default[F].withLogger(Logger[F])
+          f <- Resource.eval(appF(serverContext))
+          server <- EmberServerBuilder.default[F].withLogger(Logger[F])
             .withHostOption(config.http.server.host)
             .withPort(config.http.server.port)
             .withMaxConnections(config.http.server.maxConnections)
@@ -103,6 +103,8 @@ object ScheduledServer:
             .withTLS(tlsContext)
             .withHttpWebSocketApp(f)
             .build
+        yield
+          ((certificates, keyPair), server)
       }
     yield
       AppContext(client, acmeClient, dnsRecordApi, dnsChallengeClient, serverRef, provider)

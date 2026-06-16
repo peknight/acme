@@ -34,16 +34,14 @@ object ACMECertificatesStream:
     config: IssueConfig,
     renewalWindow: FiniteDuration = 7.days,
     issueRetryInterval: FiniteDuration = 1.hour,
+    csrProvider: Option[Provider | JProvider] = None
   )(accountKeyPair: F[Either[Error, KeyPair]], domainKeyPair: F[Either[Error, KeyPair]])(
     using
     acmeClient: ACMEClient[F, Challenge], challengeClient: ChallengeClient[F, Challenge, I, Child, Record],
     temporal: Temporal[F]
   ): Stream[F, (NonEmptyList[X509Certificate], KeyPair)] =
-    val issue: F[Either[Error, (NonEmptyList[X509Certificate], KeyPair)]] = acmeClient
-      .issue[I, Child, Record](config)(accountKeyPair, domainKeyPair)
-      .map(_.map(context => (context.certificates, context.domainKeyPair)))
     unfoldTemporal[F, Unit, (NonEmptyList[X509Certificate], KeyPair)](())(_ => acmeClient
-      .issue[I, Child, Record](config)(accountKeyPair, domainKeyPair)
+      .issue[I, Child, Record](config, csrProvider)(accountKeyPair, domainKeyPair)
       .map(_.map(context => (context.certificates, context.domainKeyPair)))
       .flatMap {
         case Right((certificates, keyPair)) =>
@@ -63,6 +61,7 @@ object ACMECertificatesStream:
     accountKeyProvider: Option[Provider | JProvider] = None,
     domainKeyProvider: Option[Provider | JProvider] = None,
     certificateProvider: Option[Provider | JProvider] = None,
+    csrProvider: Option[Provider | JProvider] = None
   )(
     accountKeyPairF: F[Either[Error, KeyPair]],
     domainKeyPairF: F[Either[Error, KeyPair]],
@@ -74,7 +73,7 @@ object ACMECertificatesStream:
     val eitherT: EitherT[F, Error, Stream[F, (NonEmptyList[X509Certificate], KeyPair)]] =
       for
         accountKeyPair <- EitherT(fetchKeyPair[F](accountKeyPath, accountKeyProvider)(accountKeyPairF))
-        acmeStream = apply[F, Challenge, I, Child, Record, Unit](config, renewalWindow, issueRetryInterval)(
+        acmeStream = apply[F, Challenge, I, Child, Record, Unit](config, renewalWindow, issueRetryInterval, csrProvider)(
           accountKeyPair.asRight[Error].pure[F], domainKeyPairF
         ).evalTap { case (certificates, domainKeyPair) =>
           writeX509CertificatesAndKeyPair[F](certificatePath, domainKeyPath)(certificates, domainKeyPair).rethrow

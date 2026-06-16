@@ -48,7 +48,10 @@ lazy val acmeClient = (project in file("acme-client"))
 lazy val acmeClientCore = (crossProject(JVMPlatform, JSPlatform) in file("acme-client/core"))
   .dependsOn(acmeCore)
   .settings(name := "acme-client-core")
-  .settings(crossDependencies(peknight.http4s))
+  .settings(crossDependencies(
+    peknight.codec.effect,
+    peknight.http4s
+  ))
 
 lazy val acmeClientApi = (crossProject(JVMPlatform, JSPlatform) in file("acme-client/api"))
   .dependsOn(acmeClientCore)
@@ -106,14 +109,13 @@ lazy val acmeClientResource = (crossProject(JVMPlatform, JSPlatform) in file("ac
 
 lazy val acmeClientApp = (crossProject(JVMPlatform, JSPlatform) in file("acme-client/app"))
   .dependsOn(
-    acmeClientResource,
+    acmeClientStream,
     acmeClientHttp4s,
     acmeClientLetsEncrypt,
     acmeClientCloudflare,
   )
   .settings(name := "acme-client-app")
   .settings(crossDependencies(
-    peknight.codec.effect,
     peknight.codec.fs2.io,
     peknight.cloudflare.zone.config,
     peknight.cloudflare.dns.record.http4s,

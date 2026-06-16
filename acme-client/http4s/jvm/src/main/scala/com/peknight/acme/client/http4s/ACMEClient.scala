@@ -44,6 +44,7 @@ import com.peknight.logging.syntax.eitherT.log
 import com.peknight.method.retry.{Retry, RetryState}
 import com.peknight.security.certificate.revocation.list.ReasonCode
 import com.peknight.security.certificate.showCertificate
+import com.peknight.security.provider.Provider
 import com.peknight.validation.std.either.isTrue
 import io.circe.Json
 import org.bouncycastle.asn1.x509.GeneralNames
@@ -54,7 +55,7 @@ import org.typelevel.log4cats.slf4j.Slf4jLogger
 import scodec.bits.ByteVector
 
 import java.security.cert.{Certificate, X509Certificate}
-import java.security.{KeyPair, PublicKey}
+import java.security.{KeyPair, PublicKey, Provider as JProvider}
 import java.util.Locale
 import scala.concurrent.duration.*
 
@@ -258,7 +259,9 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
         response
     eitherT.value
 
-  def issue[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, Record](config: IssueConfig)(
+  def issue[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, Record](
+    config: IssueConfig, csrProvider: Option[Provider | JProvider] = None
+  )(
     accountKeyPair: F[Either[Error, KeyPair]], domainKeyPair: F[Either[Error, KeyPair]]
   )(using challengeClient: ChallengeClient[F, Challenge, I, C, Record]): F[Either[Error, ACMEContext[Challenge]]] =
     given Show[I] = Identifier.showIdentifier.contramap[I](identity)
@@ -320,8 +323,7 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
         _ <- isTrue(order.status === OrderStatus.ready, OrderStatusNotReady(order.status)).eLiftET
         generalNames <- order.toGeneralNames.eLiftET
         domainKeyPair <- EitherT(domainKeyPair).log[Unit]("ACMEClient#domainKeyPair")
-        csr <- EitherT(PKCS10CertificationRequest.certificateSigningRequest[F](generalNames, domainKeyPair,
-          config.csrProvider))
+        csr <- EitherT(PKCS10CertificationRequest.certificateSigningRequest[F](generalNames, domainKeyPair, csrProvider))
           .map(csr => Base64UrlNoPad.fromByteVector(ByteVector(csr.getEncoded)))
           .log("ACMEClient#certificateSigningRequest", generalNames.some)
         finalizeClaims = FinalizeClaims(csr)
