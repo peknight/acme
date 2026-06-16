@@ -1,12 +1,9 @@
 package com.peknight.acme.client.app
 
 import cats.Parallel
-import cats.data.NonEmptyList
 import cats.effect.std.Env
 import cats.effect.{Async, Resource}
 import cats.syntax.applicative.*
-import cats.syntax.flatMap.*
-import cats.syntax.functor.*
 import cats.syntax.monadError.*
 import cats.syntax.option.*
 import com.peknight.acme.challenge.Challenge.`dns-01`
@@ -24,14 +21,11 @@ import com.peknight.cloudflare.dns.record.http4s.DNSRecordApi
 import com.peknight.codec.Decoder
 import com.peknight.error.syntax.applicativeError.asError
 import com.peknight.fs2.syntax.stream.resource
-import com.peknight.method.cascade.Source
 import com.peknight.security.Security
 import com.peknight.security.bouncycastle.jce.provider.BouncyCastleProvider
-import com.peknight.security.bouncycastle.openssl.{fetchKeyPair, readX509CertificatesAndKeyPair, writeX509CertificatesAndKeyPair}
 import com.peknight.security.cipher.RSA
 import com.peknight.security.ecc.sec.secp384r1
 import com.peknight.security.key.store.pkcs12
-import fs2.Stream
 import fs2.io.file.Files
 import fs2.io.net.Network
 import org.http4s.HttpApp
@@ -40,12 +34,8 @@ import org.http4s.client.middleware.Logger as ClientLogger
 import org.http4s.ember.client.EmberClientBuilder
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.headers.`User-Agent`
-import org.http4s.server.Server
 import org.http4s.server.websocket.WebSocketBuilder
 import org.typelevel.log4cats.Logger
-
-import java.security.KeyPair
-import java.security.cert.X509Certificate
 
 object ScheduledServer:
   def apply[F[_]: {Async, Parallel, Logger, Files, Env}](appF: ServerContext[F] => F[WebSocketBuilder[F] => HttpApp[F]])
