@@ -39,8 +39,6 @@ lazy val acmeClient = (project in file("acme-client"))
     acmeClientCloudflare.js,
     acmeClientStream.jvm,
     acmeClientStream.js,
-    acmeClientResource.jvm,
-    acmeClientResource.js,
     acmeClientApp.jvm,
     acmeClientApp.js,
   )
@@ -102,10 +100,6 @@ lazy val acmeClientCloudflare = (crossProject(JVMPlatform, JSPlatform) in file("
 lazy val acmeClientStream = (crossProject(JVMPlatform, JSPlatform) in file("acme-client/stream"))
   .dependsOn(acmeClientApi)
   .settings(name := "acme-client-stream")
-
-lazy val acmeClientResource = (crossProject(JVMPlatform, JSPlatform) in file("acme-client/resource"))
-  .dependsOn(acmeClientApi)
-  .settings(name := "acme-client-resource")
 
 lazy val acmeClientApp = (crossProject(JVMPlatform, JSPlatform) in file("acme-client/app"))
   .dependsOn(
