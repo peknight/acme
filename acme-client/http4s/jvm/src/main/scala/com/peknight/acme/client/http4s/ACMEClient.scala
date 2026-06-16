@@ -258,8 +258,8 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
         response
     eitherT.value
 
-  def issue[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, Record](
-    config: IssueConfig[F]
+  def issue[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, Record](config: IssueConfig)(
+    accountKeyPair: F[Either[Error, KeyPair]], domainKeyPair: F[Either[Error, KeyPair]]
   )(using challengeClient: ChallengeClient[F, Challenge, I, C, Record]): F[Either[Error, ACMEContext[Challenge]]] =
     given Show[I] = Identifier.showIdentifier.contramap[I](identity)
     given Show[C] = Show[Challenge].contramap[C](_.asInstanceOf)
@@ -267,7 +267,7 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
     given Show[GeneralNames] = Show.show(_.getNames.mkString("GeneralNames(", ",", ")"))
     val eitherT =
       for
-        accountKeyPair <- EitherT(config.accountKeyPair).log[Unit]("ACMEClient#accountKeyPair")
+        accountKeyPair <- EitherT(accountKeyPair).log[Unit]("ACMEClient#accountKeyPair")
         accountClaims = AccountClaims(termsOfServiceAgreed = true.some)
         (account, accountLocation) <- EitherT(newAccount(accountClaims, accountKeyPair))
           .log("ACMEClient#newAccount", accountClaims.some)
@@ -319,7 +319,7 @@ class ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge](
           config.orderPoll.interval, Set(OrderStatus.ready, OrderStatus.valid, OrderStatus.invalid)))
         _ <- isTrue(order.status === OrderStatus.ready, OrderStatusNotReady(order.status)).eLiftET
         generalNames <- order.toGeneralNames.eLiftET
-        domainKeyPair <- EitherT(config.domainKeyPair).log[Unit]("ACMEClient#domainKeyPair")
+        domainKeyPair <- EitherT(domainKeyPair).log[Unit]("ACMEClient#domainKeyPair")
         csr <- EitherT(PKCS10CertificationRequest.certificateSigningRequest[F](generalNames, domainKeyPair,
           config.csrProvider))
           .map(csr => Base64UrlNoPad.fromByteVector(ByteVector(csr.getEncoded)))

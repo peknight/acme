@@ -45,6 +45,6 @@ trait ACMEClient[F[_], Challenge <: com.peknight.acme.challenge.Challenge]:
   def revokeCertificate(certificate: Certificate, keyPair: KeyPair, accountLocation: Uri,
                         reason: Option[ReasonCode] = None): F[Either[Error, Unit]]
   def issue[I <: Identifier, C <: com.peknight.acme.challenge.Challenge, Record]
-           (config: IssueConfig[F])
+           (config: IssueConfig)(accountKeyPair: F[Either[Error, KeyPair]], domainKeyPair: F[Either[Error, KeyPair]])
            (using challengeClient: ChallengeClient[F, Challenge, I, C, Record]): F[Either[Error, ACMEContext[Challenge]]]
 end ACMEClient

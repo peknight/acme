@@ -66,12 +66,9 @@ class ACMEClientFlatSpec extends AsyncFlatSpec with AsyncIOSpec:
                       identifiers <- NonEmptyList.of(
                         "*.peknight.com",
                       ).traverse(domain => Identifier.dns(domain).eLiftET[IO])
-                      context <- EitherT(acmeClient.issue[DNS, `dns-01`, DNSRecordId](IssueConfig[IO](
-                        identifiers,
-                        accountKeyPair.asRight.pure,
-                        secp384r1.generateKeyPair[IO](provider = provider.some).asError,
-                        csrProvider = provider.some
-                      )))
+                      context <- EitherT(acmeClient.issue[DNS, `dns-01`, DNSRecordId](
+                        IssueConfig(identifiers, csrProvider = provider.some)
+                      )(accountKeyPair.asRight.pure, secp384r1.generateKeyPair[IO](provider = provider.some).asError))
                     yield
                       (context.certificates, context.domainKeyPair)
                   et.value

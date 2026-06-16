@@ -24,19 +24,19 @@ import scala.concurrent.duration.*
 
 object ACMECertificatesStream:
   def apply[F[_], Challenge <: ACMEChallenge, I <: Identifier, Child <: ACMEChallenge, Record, A](
-    config: IssueConfig[F],
+    config: IssueConfig,
     renewalWindow: FiniteDuration = 7.days,
     issueRetryInterval: FiniteDuration = 1.hour,
-  )(
+  )(accountKeyPair: F[Either[Error, KeyPair]], domainKeyPair: F[Either[Error, KeyPair]])(
     using
     acmeClient: ACMEClient[F, Challenge], challengeClient: ChallengeClient[F, Challenge, I, Child, Record],
     temporal: Temporal[F]
   ): Stream[F, (NonEmptyList[X509Certificate], KeyPair)] =
     val issue: F[Either[Error, (NonEmptyList[X509Certificate], KeyPair)]] = acmeClient
-      .issue[I, Child, Record](config)
+      .issue[I, Child, Record](config)(accountKeyPair, domainKeyPair)
       .map(_.map(context => (context.certificates, context.domainKeyPair)))
     unfoldTemporal[F, Unit, (NonEmptyList[X509Certificate], KeyPair)](())(_ => acmeClient
-      .issue[I, Child, Record](config)
+      .issue[I, Child, Record](config)(accountKeyPair, domainKeyPair)
       .map(_.map(context => (context.certificates, context.domainKeyPair)))
       .flatMap {
         case Right((certificates, keyPair)) =>
@@ -45,6 +45,7 @@ object ACMECertificatesStream:
       }
     )
   end apply
+
 
   private def interval[F[_]: {Applicative, Clock}](certificates: NonEmptyList[X509Certificate],
                                                    threshold: FiniteDuration, retryInterval: FiniteDuration)

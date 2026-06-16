@@ -44,9 +44,9 @@ object ScheduledResource:
     acmeClient: ACMEClient[F, Challenge], challengeClient: ChallengeClient[F, Challenge, I, Child, Record],
     async: Async[F])
   : Resource[F, Ref[F, ((NonEmptyList[X509Certificate], KeyPair), A)]] =
-    val issue = acmeClient.issue[I, Child, Record](IssueConfig(identifiers, accountKeyPair, domainKeyPair,
+    val issue = acmeClient.issue[I, Child, Record](IssueConfig(identifiers, 
       postChallengeDelay, PollConfig(queryChallengeTimeout, queryChallengeInterval),
-      PollConfig(queryOrderTimeout, queryOrderInterval), csrProvider))
+      PollConfig(queryOrderTimeout, queryOrderInterval), csrProvider))(accountKeyPair, domainKeyPair)
       .map(_.map(context => (context.certificates, context.domainKeyPair)))
     SecurityScheduledResource[F, A](scheduler, threshold, alias, keyPassword, keyStoreProvider)(
       fetch[F, (NonEmptyList[X509Certificate], KeyPair)](source, Source.read(issue.map(_.map(_.some))))
