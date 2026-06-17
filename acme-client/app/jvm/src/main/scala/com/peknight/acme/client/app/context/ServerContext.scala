@@ -13,14 +13,10 @@ import java.security.cert.X509Certificate
 import java.security.{KeyPair, KeyStore}
 
 case class ServerContext[F[_]](
-                                client: Client[F],
-                                acmeClient: ACMEClient[F, Challenge],
-                                dnsRecordApi: DNSRecordApi[F],
-                                dnsChallengeClient: CloudflareDNSChallengeClient[F, Challenge],
+                                streamContext: StreamContext[F],
                                 certificates: NonEmptyList[X509Certificate],
                                 domainKeyPair: KeyPair,
-                                keyStore: KeyStore,
-                                provider: BouncyCastleProvider
+                                keyStore: KeyStore
                               )
 object ServerContext:
   given showServerContext[F[_]]: Show[ServerContext[F]] with

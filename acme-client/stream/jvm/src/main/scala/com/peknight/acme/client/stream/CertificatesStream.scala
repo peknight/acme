@@ -29,7 +29,7 @@ import java.security.cert.X509Certificate
 import java.security.{KeyPair, Provider as JProvider}
 import scala.concurrent.duration.*
 
-object ACMECertificatesStream:
+object CertificatesStream:
   def apply[F[_], Challenge <: ACMEChallenge, I <: Identifier, Child <: ACMEChallenge, Record, A](
     config: IssueConfig,
     renewalWindow: FiniteDuration = 7.days,
@@ -115,4 +115,4 @@ object ACMECertificatesStream:
         }
       case _ => none[FiniteDuration].pure[F]
 
-end ACMECertificatesStream
+end CertificatesStream

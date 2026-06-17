@@ -15,12 +15,8 @@ import java.security.KeyPair
 import java.security.cert.X509Certificate
 
 case class AppContext[F[_]](
-                             client: Client[F],
-                             acmeClient: ACMEClient[F, Challenge],
-                             dnsRecordApi: DNSRecordApi[F],
-                             dnsChallengeClient: CloudflareDNSChallengeClient[F, Challenge],
+                             streamContext: StreamContext[F],
                              serverRef: Ref[F, ((NonEmptyList[X509Certificate], KeyPair), Server)],
-                             provider: BouncyCastleProvider
                            )
 object AppContext:
   given showAppContext[F[_]]: Show[AppContext[F]] with
