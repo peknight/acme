@@ -5,71 +5,67 @@ commonSettings
 
 lazy val acme = (project in file("."))
   .settings(name := "acme")
-  .aggregate(
-    acmeCore.jvm,
-    acmeCore.js,
-    acmeClient,
-  )
+  .aggregate(acmeCore.projectRefs *)
+  .aggregate(acmeClientCore.projectRefs *)
+  .aggregate(acmeClientApi.projectRefs *)
+  .aggregate(acmeClientHttp4s.projectRefs *)
+  .aggregate(acmeClientLetsEncrypt.projectRefs *)
+  .aggregate(acmeClientCloudflare.projectRefs *)
+  .aggregate(acmeClientStream.projectRefs *)
+  .aggregate(acmeClientApp.projectRefs *)
 
-lazy val acmeCore = (crossProject(JVMPlatform, JSPlatform) in file("acme-core"))
+lazy val acmeCore = (projectMatrix in file("acme-core"))
   .settings(name := "acme-core")
-  .settings(crossDependencies(
+  .settings(libraryDependencies ++= dependencies(
     peknight.jose,
     peknight.http,
     peknight.codec.ip4s,
-    peknight.security.bouncyCastle.provider,
-    peknight.security.bouncyCastle.pkix,
-    peknight.security.instances.codec,
     peknight.catsEffect,
     peknight.http4s,
   ))
-
-lazy val acmeClient = (project in file("acme-client"))
-  .settings(name := "acme-client")
-  .aggregate(
-    acmeClientCore.jvm,
-    acmeClientCore.js,
-    acmeClientApi.jvm,
-    acmeClientApi.js,
-    acmeClientHttp4s.jvm,
-    acmeClientHttp4s.js,
-    acmeClientLetsEncrypt.jvm,
-    acmeClientLetsEncrypt.js,
-    acmeClientCloudflare.jvm,
-    acmeClientCloudflare.js,
-    acmeClientStream.jvm,
-    acmeClientStream.js,
-    acmeClientApp.jvm,
-    acmeClientApp.js,
+  .jvmPlatform(
+    scalaVersions = Seq(scala.scala3.version),
+    settings = Seq(
+      libraryDependencies ++= dependencies(
+        peknight.security.bouncyCastle.provider,
+        peknight.security.bouncyCastle.pkix,
+        peknight.security.instances.codec,
+      )
+    )
   )
+  .jsPlatform(scalaVersions = Seq(scala.scala3.version))
 
-lazy val acmeClientCore = (crossProject(JVMPlatform, JSPlatform) in file("acme-client/core"))
+lazy val acmeClientCore = (projectMatrix in file("acme-client/core"))
   .dependsOn(acmeCore)
   .settings(name := "acme-client-core")
-  .settings(crossDependencies(
+  .settings(libraryDependencies ++= dependencies(
     peknight.codec.effect,
-    peknight.http4s
+    peknight.http4s,
   ))
+  .jvmPlatform(scalaVersions = Seq(scala.scala3.version))
+  .jsPlatform(scalaVersions = Seq(scala.scala3.version))
 
-lazy val acmeClientApi = (crossProject(JVMPlatform, JSPlatform) in file("acme-client/api"))
+lazy val acmeClientApi = (projectMatrix in file("acme-client/api"))
   .dependsOn(acmeClientCore)
   .settings(name := "acme-client-api")
+  .jvmPlatform(scalaVersions = Seq(scala.scala3.version))
+  .jsPlatform(scalaVersions = Seq(scala.scala3.version))
 
-lazy val acmeClientHttp4s = (crossProject(JVMPlatform, JSPlatform) in file("acme-client/http4s"))
+lazy val acmeClientHttp4s = (projectMatrix in file("acme-client/http4s"))
   .dependsOn(
     acmeClientApi,
     acmeClientLetsEncrypt % Test,
     acmeClientCloudflare % Test,
   )
   .settings(name := "acme-client-http4s")
-  .settings(crossDependencies(
+  .settings(libraryDependencies ++= dependencies(
     http4s.client,
     peknight.codec.http4s.circe,
     peknight.security.http4s,
     peknight.logging,
     peknight.commons.time,
   ))
-  .settings(crossTestDependencies(
+  .settings(libraryDependencies ++= testDependencies(
     peknight.logging.logback.config,
     peknight.cloudflare.zone.config,
     peknight.cloudflare.dns.record.http4s,
@@ -79,40 +75,51 @@ lazy val acmeClientHttp4s = (crossProject(JVMPlatform, JSPlatform) in file("acme
     scalaTest.flatSpec,
     typelevel.catsEffect.testingScalaTest,
   ))
-  .jvmSettings(libraryDependencies ++= Seq(
-    dependency(typelevel.log4Cats.slf4j),
-    jvmTestDependency(logback.classic),
-  ))
+  .jvmPlatform(
+    scalaVersions = Seq(scala.scala3.version),
+    settings = Seq(
+      libraryDependencies ++= dependencies(typelevel.log4Cats.slf4j),
+      libraryDependencies ++= jvmTestDependencies(logback.classic),
+    )
+  )
+  .jsPlatform(scalaVersions = Seq(scala.scala3.version))
 
-lazy val acmeClientLetsEncrypt = (crossProject(JVMPlatform, JSPlatform) in file("acme-client/lets-encrypt"))
+lazy val acmeClientLetsEncrypt = (projectMatrix in file("acme-client/lets-encrypt"))
   .dependsOn(acmeCore)
   .settings(name := "acme-client-lets-encrypt")
+  .jvmPlatform(scalaVersions = Seq(scala.scala3.version))
+  .jsPlatform(scalaVersions = Seq(scala.scala3.version))
 
-lazy val acmeClientCloudflare = (crossProject(JVMPlatform, JSPlatform) in file("acme-client/cloudflare"))
+lazy val acmeClientCloudflare = (projectMatrix in file("acme-client/cloudflare"))
   .dependsOn(acmeClientApi)
   .settings(name := "acme-client-cloudflare")
-  .settings(crossDependencies(
+  .settings(libraryDependencies ++= dependencies(
     peknight.cloudflare.dns.record.api,
     peknight.logging,
   ))
-  .jvmSettings(libraryDependencies ++= dependencies(typelevel.log4Cats.slf4j))
+  .jvmPlatform(
+    scalaVersions = Seq(scala.scala3.version),
+    settings = Seq(
+      libraryDependencies ++= dependencies(typelevel.log4Cats.slf4j),
+    )
+  )
+  .jsPlatform(scalaVersions = Seq(scala.scala3.version))
 
-lazy val acmeClientStream = (crossProject(JVMPlatform, JSPlatform) in file("acme-client/stream"))
+lazy val acmeClientStream = (projectMatrix in file("acme-client/stream"))
   .dependsOn(acmeClientApi)
   .settings(name := "acme-client-stream")
+  .jvmPlatform(scalaVersions = Seq(scala.scala3.version))
+  .jsPlatform(scalaVersions = Seq(scala.scala3.version))
 
-lazy val acmeClientApp = (crossProject(JVMPlatform, JSPlatform) in file("acme-client/app"))
-  .dependsOn(
-    acmeClientStream,
-    acmeClientHttp4s,
-    acmeClientLetsEncrypt,
-    acmeClientCloudflare,
-  )
+lazy val acmeClientApp = (projectMatrix in file("acme-client/app"))
+  .dependsOn(acmeClientStream, acmeClientHttp4s, acmeClientLetsEncrypt, acmeClientCloudflare)
   .settings(name := "acme-client-app")
-  .settings(crossDependencies(
+  .settings(libraryDependencies ++= dependencies(
     peknight.codec.fs2.io,
     peknight.cloudflare.zone.config,
     peknight.cloudflare.dns.record.http4s,
     http4s.ember.server,
     http4s.ember.client,
   ))
+  .jvmPlatform(scalaVersions = Seq(scala.scala3.version))
+  .jsPlatform(scalaVersions = Seq(scala.scala3.version))
